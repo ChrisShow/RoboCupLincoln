@@ -1,0 +1,27 @@
+6/04/2025
+
+L'idea iniziale era quella di utilizzare la scheda Arduino UNO R4 per gestire sensori e motori collegandola ad un raspberry pi (pi4 o pi1 model B) per la parte di visione egestione degli algoritmi.
+
+Ragionando, mi sono ricordato che in occasione del maker faire ci avevano dato delle schede di ST della famiglia STM32 NUCLEO, comprese anche di schede motori, farei una valutazione dell'utilizzo di quest'ultime al posto di Arduino, in quanto più potenti e fatte apposya per l'occasione.
+
+MICROCONTROLLORE della scheda NUCLEO:
+-STM32F401RE
+-ARM 32 BIT CPU
+-512 KB FLASH
+-96 KB SRAM
+-50 PIN GPIO
+
+PINOUT della scheda NUCLEO:
+-ARDUINO REV3 CONNECTIVITY PIN 
+-ST MOPRHO EXTENSION PIN
+
+CARATTERISTICHE della scheda NUCLEO:
+-ONBOARD STLink V2 debigger/programmer
+-ONBOARD Power Supply (3.3V, 5V, 7 - 12V)
+-USER LED (collocato nel pin LD2)
+-1 BOTTONE PROGRAMMABILE USER E 1 BOTTONE RESET
+-3 DIVERSE INTERFACCE SUPPORTATE DALLA USB:
+   -Virtual Com port
+   -Mass Storage (roconosciuta come una chiavetta usb) per programmazione drag'n'drop
+
+Vi allego nella repository i datasheet dei due componenti che ho trovato.
