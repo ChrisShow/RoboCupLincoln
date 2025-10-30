@@ -1,0 +1,95 @@
+function lookaround()
+{
+    attiva sensore di profondità
+    se il sensore di profondità rileva un muro 
+    {
+        assegna al muro valore 1
+        attiva la telecamera
+        aziona sensore di colore
+        se rileva lettera
+        {
+            accendi motore per rilascio medikit
+            break
+        }
+        se rileva colore
+        {
+            aziona display
+            stampa su display il colore
+            break
+        }
+        spegni telecamera
+        spegni sensore di colore
+    }
+    se il sensore di profondità non rileva un muro 
+    {
+        assegna al muro valore 0 
+    }
+    spegni sensore di profondità
+
+    aziona motori
+    gira di 90° a destra
+    spegni motori
+
+    attiva sensore di profondità
+    se il sensore di profondità rileva un muro 
+    {
+        assegna al muro valore 1
+        attiva la telecamera
+        aziona sensore di colore
+        se rileva lettera
+        {
+            accendi motore per rilascio medikit
+            break
+        }
+        se rileva colore
+        {
+            aziona display
+            stampa su display colore
+            break
+        }
+        spegni telecamera
+        spegni sensore di colore
+    }
+    se il sensore di profondità non rileva un muro 
+    {
+        assegna al muro valore 0 
+    }
+    spegni sensore di profondità
+
+    aziona motori
+    gira 180° a sinistra
+    spegni motori
+
+    attiva sensore di profondità
+    se il sensore di profondità rileva un muro 
+    {
+        assegna al muro valore 1
+        attiva la telecamera
+        aziona sensore di colore
+        se rileva lettera
+        {
+            accendi motore per rilascio medikit
+            break
+        }
+        se rileva colore
+        {
+            aziona display
+            stampa su display colore
+            break
+        }
+        spegni telecamera
+        spegni sensore di colore
+    }
+    se il sensore di profondità non rileva un muro 
+    {
+        assegna al muro valore 0 
+    }
+    spegni sensore di profondità
+    comunica direzioni possibili
+    assegna a cellaVisitata[][] valore i++
+    scegliDirezione();
+}
+function scegliDirezione()
+{
+
+}
