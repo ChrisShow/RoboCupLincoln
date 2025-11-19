@@ -1,6 +1,6 @@
 function lookaround()
 {
-    dir = 0
+    dir = 0 // dritto
     leggi da sensore profondità dritto
     se il sensore di profondità rileva distanza <= 7 
     {
@@ -20,11 +20,13 @@ function lookaround()
     se il sensore di profondità rileva distanza > 7
     {
         SE dir == 0:
-            Cella dritto (x, y+1)
+            dritto (x, y+1)
         ALTRIMENTI SE dir = 1:
-            Cella dritto (x+1, y)
+            dritto (x+1, y)
         ALTRIMENTI SE dir = 2:
-            Cella dritto (x-1, y)  
+            dritto (x-1, y)
+        
+        inserisci dritto nella lista della celle non ancora visitate
     }
     spegni sensore di profondità
 
@@ -32,11 +34,11 @@ function lookaround()
     gira di 90° a destra
     spegni servo
 
-    dir = 0
-    leggi da sensore profondità dritto
+    dir = 1 // destra
+    leggi da sensore profondità destra
     se il sensore di profondità rileva distanza <= 7 
     {
-        assegna a dritto il valore none
+        assegna a destra il valore none
         attiva la telecamera
         se rileva lettera
         {
@@ -52,11 +54,11 @@ function lookaround()
     se il sensore di profondità rileva distanza > 7
     {
         SE dir == 0:
-            Cella dritto (x, y+1)
+            destra (x, y+1)
         ALTRIMENTI SE dir = 1:
-            Cella dritto (x+1, y)
+            destra (x+1, y)
         ALTRIMENTI SE dir = 2:
-            Cella dritto (x-1, y)  
+            destra (x-1, y)  
     }
     spegni sensore di profondità
 

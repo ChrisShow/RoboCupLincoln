@@ -37,9 +37,10 @@ class MemoriaCelle:
         """
         Restituisce un intero in base allo storico delle celle visitate.
         Ritorna -1 se la cella non è stata ancora visitata
+        Ritorna -2 se la cella è nulla
         """
         if elemento is None:
-            return -1
+            return -2
         
         for i, cella in enumerate(self.memoria):
             if cella.confronto(elemento.getX(), elemento.getY()):
@@ -93,15 +94,16 @@ class MemoriaCelle:
         
         # Restituisce la direzione
         if not trovata_dritto:
-            return 0
+            return 0 # Vai dritto
         if not trovata_destra:
-            return 1
+            return 1 # Vai a dx
         if not trovata_sinistra:
-            return 2
+            return 2 # Vai a sx
         
+        # Caso in cui abbiamo visitato già tutte le celle circostanti
         if storico_dritto > storico_destra and storico_dritto > storico_sinistra:
-            return 0
+            return 0 # Vai dritto
         elif storico_destra > storico_dritto and storico_destra > storico_sinistra:
-            return 1
+            return 1 # Vai a dx
         elif storico_sinistra > storico_dritto and storico_sinistra > storico_destra:
-            return 2
+            return 2 # Vai a sx
