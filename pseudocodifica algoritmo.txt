@@ -1,64 +1,68 @@
 function lookaround()
 {
-    attiva sensore di profondità
-    se il sensore di profondità rileva un muro 
+    dir = 0
+    leggi da sensore profondità dritto
+    se il sensore di profondità rileva distanza <= 7 
     {
-        assegna al muro valore 1
+        assegna a dritto il valore none
         attiva la telecamera
-        aziona sensore di colore
         se rileva lettera
         {
             accendi motore per rilascio medikit
-            break
         }
         se rileva colore
         {
             aziona display
             stampa su display il colore
-            break
         }
         spegni telecamera
-        spegni sensore di colore
     }
-    se il sensore di profondità non rileva un muro 
+    se il sensore di profondità rileva distanza > 7
     {
-        assegna al muro valore 0 
+        SE dir == 0:
+            Cella dritto (x, y+1)
+        ALTRIMENTI SE dir = 1:
+            Cella dritto (x+1, y)
+        ALTRIMENTI SE dir = 2:
+            Cella dritto (x-1, y)  
     }
     spegni sensore di profondità
 
-    aziona motori
+    aziona servo
     gira di 90° a destra
-    spegni motori
+    spegni servo
 
-    attiva sensore di profondità
-    se il sensore di profondità rileva un muro 
+    dir = 0
+    leggi da sensore profondità dritto
+    se il sensore di profondità rileva distanza <= 7 
     {
-        assegna al muro valore 1
+        assegna a dritto il valore none
         attiva la telecamera
-        aziona sensore di colore
         se rileva lettera
         {
             accendi motore per rilascio medikit
-            break
         }
         se rileva colore
         {
             aziona display
-            stampa su display colore
-            break
+            stampa su display il colore
         }
         spegni telecamera
-        spegni sensore di colore
     }
-    se il sensore di profondità non rileva un muro 
+    se il sensore di profondità rileva distanza > 7
     {
-        assegna al muro valore 0 
+        SE dir == 0:
+            Cella dritto (x, y+1)
+        ALTRIMENTI SE dir = 1:
+            Cella dritto (x+1, y)
+        ALTRIMENTI SE dir = 2:
+            Cella dritto (x-1, y)  
     }
     spegni sensore di profondità
 
-    aziona motori
-    gira 180° a sinistra
-    spegni motori
+    aziona servo
+    gira di 90° a destra
+    spegni servo
 
     attiva sensore di profondità
     se il sensore di profondità rileva un muro 
