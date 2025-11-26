@@ -2,57 +2,119 @@ RASPBERRY:
 
     INIZIALIZZA memoriaCelle
     INIZIALIZZA listaCelleNonVisitate
+    INIZIALIZZA listaCelleNonPercorribili
     AVVIA telecamera
 
-    direzione = guardaIntorno()
+    // Direzioni: 0 = SOPRA ,1 = DX, 2 = SX , 3 = SOTTO
+
+    direzione = 1
+    crea cellaDritto = none
+    crea cellaDestra = none
+    crea cellaSinistra = none
+    crea cellaDietro = none
+    guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra)
 
     FINCHE' listaCelleNonVisitate non è vuota:
         
-        str = rilevaOstacoli() da ARDUINO
-        dritto = primo numero di str
-        destra = sinistra numero di str
-        sinistra = terzo numero di str
-
-        crea cellaDritto = none
-        crea cellaDestra = none
-        crea cellaSinistra = none
-
-        SE dritto = 0:
-            sposta_telecamera_dritto()
-            rilevazione = rileva()
-            SE rilevazione = lettera AND cella_non_visitata():
-                rilascia_medikit()
-            ALTRIMENTI SE rilevazione = colore AND cella_non_visitata():
-                mostra_colore()
-        ALTRIMENTI SE dritto = 1:
-            cellaDritto = (x, y+1)
-        
-        SE destra = 0:
-            sposta_telecamera_destra()
-            rilevazione = rileva()
-            SE rilevazione = lettera AND cella_non_visitata():
-                rilascia_medikit()
-            ALTRIMENTI SE rilevazione = colore AND cella_non_visitata():
-                mostra_colore()
-        ALTRIMENTI SE destra = 1:
-            cellaDestra = (x, y+1) 
-
-        SE sinistra = 0:
-            sposta_telecamera_sinistra()
-            rilevazione = rileva()
-            SE rilevazione = lettera AND cella_non_visitata():
-                rilascia_medikit()
-            ALTRIMENTI SE rilevazione = colore AND cella_non_visitata():
-                mostra_colore()
-        ALTRIMENTI SE sinistra = 1:
-            cellaSinistra = (x, y+1)
-
         prossimaDirezione = memoriaCelle.scegliDirezione(cellaDritto, cellaDestra, cellaSinistra)
+        
+        esito = DICI AD ARDUINO muoviProssimaDirezione(nuovaDirezione)
+        SE esito = 1:
+            SE prossimaDirezione = 0:
+                togli cellaDritto da listaCelleNonVisitate
+                inserisci cellaDritto in memoriaCelle
+            ALTRIMENTI SE prossimaDirezione = 1:
+                togli cellaDestra da listaCelleNonVisitate
+                inserisci cellaDestra in memoriaCelle
+            ALTRIMENTI SE prossimaDirezione = 2:
+                togli cellaSinistra da listaCelleNonVisitate
+                inserisci cellaSinistra in memoriaCelle
+            ALTRIMENTI SE prossimaDirezione = 3:
+                togli cellaDietro da listaCelleNonVisitate
+                inserisci cellaDietro in memoriaCelle
+            guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra)
+        ALTRIMENTI SE esito = 0:
+            SE prossimaDirezione = 0:
+                inserisci cellaDritto in listaCelleNonPercorribili
+            ALTRIMENTI SE prossimaDirezione = 1:
+                inserisci cellaDestra in listaCelleNonPercorribili
+            ALTRIMENTI SE prossimaDirezione = 2:
+                inserisci cellaSinistra in listaCelleNonPercorribili
+            ALTRIMENTI SE prossimaDirezione = 3:
+                inserisci cellaDietro in listaCelleNonPercorribili
 
-        DICI AD ARDUINO DI MUOVERE IN prossimaDirezione
 
+guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra):
+    str = rilevaMuri() da ARDUINO
+    dritto = primo numero di str
+    destra = sinistra numero di str
+    sinistra = terzo numero di str
 
+    SE dritto = 0: // MURO
+        sposta_telecamera_dritto()
+        rilevazione = rileva()
+        SE rilevazione = lettera AND cella_non_visitata():
+            rilascia_medikit()
+        ALTRIMENTI SE rilevazione = colore AND cella_non_visitata():
+            mostra_colore()
+    ALTRIMENTI SE dritto = 1: // VIA LIBERA
+        SE direzione = 0:
+            cellaDritto = (x, y+1)
+        ALTRIMENTI SE direzione = 1:
+            cellaDritto = (x+1, y)
+        ALTRIMENTI SE direzione = 2:
+            cellaDritto = (x-1, y)
+        ALTRIMENTI SE direzione = 3:
+            cellaDritto = (x, y-1)
+        SE cellaDritto NON PRESENTE in listaCelleNonVisitate:
+            inserisci cellaDritto nella listaCelleNonVisitate
 
+    SE destra = 0:
+        sposta_telecamera_destra()
+        rilevazione = rileva()
+        SE rilevazione = lettera AND cella_non_visitata():
+            rilascia_medikit()
+        ALTRIMENTI SE rilevazione = colore AND cella_non_visitata():
+            mostra_colore()
+    ALTRIMENTI SE destra = 1:
+        SE direzione = 0:
+            cellaDx = (x+1, y)
+        ALTRIMENTI SE direzione = 1:
+            cellaDx = (x, y-1)
+        ALTRIMENTI SE direzione = 2:
+            cellaDx = (x, y+1)
+        ALTRIMENTI SE direzione = 3:
+            cellaDx = (x-1, y)
+        SE NOT cellaDx_già_visitata():
+            inserisci cellaDx nella listaCelleNonVisitate 
+
+    SE sinistra = 0:
+        sposta_telecamera_sinistra()
+        rilevazione = rileva()
+        SE rilevazione = lettera AND cella_non_visitata():
+            rilascia_medikit()
+        ALTRIMENTI SE rilevazione = colore AND cella_non_visitata():
+            mostra_colore()
+    ALTRIMENTI SE sinistra = 1:
+        SE direzione = 0:
+            cellaSx = (x-1, y)
+        ALTRIMENTI SE direzione = 1:
+            cellaSx = (x, y+1)
+        ALTRIMENTI SE direzione = 2:
+            cellaSx = (x, y-1)
+        ALTRIMENTI SE direzione = 3:
+            cellaSx = (x+1, y)
+        SE NOT cellaSx_già_visitata():
+            inserisci cellaSx nella listaCelleNonVisitate
+
+    SE direzione = 0:
+        cellaDietro = (x, y-1)
+    ALTRIMENTI SE direzione = 1:
+        cellaDietro = (x-1, y)
+    ALTRIMENTI SE direzione = 2:
+        cellaDietro = (x+1, y)
+    ALTRIMENTI SE direzione = 3:
+        cellaDietro = (x+1, y)
 
 
 ARDUINO:
@@ -81,6 +143,6 @@ ARDUINO:
         RESTITUISCI str a RASPBERRY
     }
     
-    funzione muoviProssimaDirezione(nuovaDirezione) {
-
+    funzione int muoviProssimaDirezione(nuovaDirezione) {
+        // Restituisce 1 se mossa andata a buon fine, 0 altrimenti
     }
