@@ -3,46 +3,57 @@ RASPBERRY:
     INIZIALIZZA memoriaCelle
     INIZIALIZZA listaCelleNonVisitate
     INIZIALIZZA listaCelleNonPercorribili
-    AVVIA telecamera
-
-    // Direzioni: 0 = SOPRA ,1 = DX, 2 = SX , 3 = SOTTO
-
-    direzione = 1
+    crea cellaCorrente = Cella(0,0)
     crea cellaDritto = none
     crea cellaDestra = none
     crea cellaSinistra = none
     crea cellaDietro = none
-    guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra)
+    direzione = 1
+    AVVIA telecamera
+    // Direzioni: 0 = SOPRA ,1 = DX, 2 = SX , 3 = SOTTO
 
-    FINCHE' listaCelleNonVisitate non è vuota:
-        
-        prossimaDirezione = memoriaCelle.scegliDirezione(cellaDritto, cellaDestra, cellaSinistra)
-        
-        esito = DICI AD ARDUINO muoviProssimaDirezione(nuovaDirezione)
-        SE esito = 1:
-            SE prossimaDirezione = 0:
-                togli cellaDritto da listaCelleNonVisitate
-                inserisci cellaDritto in memoriaCelle
-            ALTRIMENTI SE prossimaDirezione = 1:
-                togli cellaDestra da listaCelleNonVisitate
-                inserisci cellaDestra in memoriaCelle
-            ALTRIMENTI SE prossimaDirezione = 2:
-                togli cellaSinistra da listaCelleNonVisitate
-                inserisci cellaSinistra in memoriaCelle
-            ALTRIMENTI SE prossimaDirezione = 3:
-                togli cellaDietro da listaCelleNonVisitate
-                inserisci cellaDietro in memoriaCelle
-            guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra)
-        ALTRIMENTI SE esito = 0:
-            SE prossimaDirezione = 0:
-                inserisci cellaDritto in listaCelleNonPercorribili
-            ALTRIMENTI SE prossimaDirezione = 1:
-                inserisci cellaDestra in listaCelleNonPercorribili
-            ALTRIMENTI SE prossimaDirezione = 2:
-                inserisci cellaSinistra in listaCelleNonPercorribili
-            ALTRIMENTI SE prossimaDirezione = 3:
-                inserisci cellaDietro in listaCelleNonPercorribili
+    main():
 
+        guardaIntorno()
+
+        FINCHE' listaCelleNonVisitate non è vuota:
+            
+            prossimaDirezione = memoriaCelle.scegliDirezione(cellaDritto, cellaDestra, cellaSinistra)
+            
+            esito = DICI AD ARDUINO muoviProssimaDirezione(nuovaDirezione)
+            SE esito = 1:
+                SE prossimaDirezione = 0:
+                    SE cellaDritto E' PRESENTE IN listaCelleNonVisitate:
+                        togli cellaDritto da listaCelleNonVisitate
+                    inserisci cellaDritto in memoriaCelle
+                    cellaCorrente = cellaDritto
+                ALTRIMENTI SE prossimaDirezione = 1:
+                    SE cellaDestra E' PRESENTE IN listaCelleNonVisitate:
+                        togli cellaDestra da listaCelleNonVisitate
+                    inserisci cellaDestra in memoriaCelle
+                    cellaCorrente = cellaDestra
+                ALTRIMENTI SE prossimaDirezione = 2:
+                    SE cellaSinistra E' PRESENTE IN listaCelleNonVisitate:
+                        togli cellaSinistra da listaCelleNonVisitate
+                    inserisci cellaSinistra in memoriaCelle
+                    cellaCorrente = cellaSinistra
+                ALTRIMENTI SE prossimaDirezione = 3:
+                    inserisci cellaDietro in memoriaCelle
+                    cellaCorrente = cellaDietro
+            ALTRIMENTI SE esito = 0:
+                SE prossimaDirezione = 0 E cellaDritto NON PRESENTE IN listaCelleNonPercorribili:
+                    inserisci cellaDritto in listaCelleNonPercorribili
+                ALTRIMENTI SE prossimaDirezione = 1 E cellaDestra NON PRESENTE IN listaCelleNonPercorribili:
+                    inserisci cellaDestra in listaCelleNonPercorribili
+                ALTRIMENTI SE prossimaDirezione = 2 E cellaSinistra NON PRESENTE IN listaCelleNonPercorribili:
+                    inserisci cellaSinistra in listaCelleNonPercorribili
+                ALTRIMENTI SE prossimaDirezione = 3 E cellaDietro NON PRESENTE IN listaCelleNonPercorribili:
+                    inserisci cellaDietro in listaCelleNonPercorribili
+
+            guardaIntorno()
+
+        FINE FINCHE'
+    FINE main
 
 guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra):
     str = rilevaMuri() da ARDUINO
@@ -66,7 +77,9 @@ guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra):
             cellaDritto = (x-1, y)
         ALTRIMENTI SE direzione = 3:
             cellaDritto = (x, y-1)
-        SE cellaDritto NON PRESENTE in listaCelleNonVisitate:
+        SE cellaDritto PRESENTE IN listaCelleNonPercorribili:
+            cellaDritto = none
+        ALTRIMENTI SE cellaDritto NON PRESENTE in listaCelleNonVisitate:
             inserisci cellaDritto nella listaCelleNonVisitate
 
     SE destra = 0:
@@ -85,8 +98,10 @@ guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra):
             cellaDx = (x, y+1)
         ALTRIMENTI SE direzione = 3:
             cellaDx = (x-1, y)
-        SE NOT cellaDx_già_visitata():
-            inserisci cellaDx nella listaCelleNonVisitate 
+        SE cellaDestra PRESENTE IN listaCelleNonPercorribili:
+            cellaDestra = none
+        ALTRIMENTI SE cellaDestra NON PRESENTE in listaCelleNonVisitate:
+            inserisci cellaDestra nella listaCelleNonVisitate 
 
     SE sinistra = 0:
         sposta_telecamera_sinistra()
@@ -104,8 +119,10 @@ guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra):
             cellaSx = (x, y-1)
         ALTRIMENTI SE direzione = 3:
             cellaSx = (x+1, y)
-        SE NOT cellaSx_già_visitata():
-            inserisci cellaSx nella listaCelleNonVisitate
+        SE cellaSinistra PRESENTE IN listaCelleNonPercorribili:
+            cellaSinistra = none
+        ALTRIMENTI SE cellaSinistra NON PRESENTE in listaCelleNonVisitate:
+            inserisci cellaSinistra nella listaCelleNonVisitate
 
     SE direzione = 0:
         cellaDietro = (x, y-1)
@@ -114,8 +131,9 @@ guardaIntorno(listaCelleNonVisitate, cellaDritto, cellaDestra, cellaSinistra):
     ALTRIMENTI SE direzione = 2:
         cellaDietro = (x+1, y)
     ALTRIMENTI SE direzione = 3:
-        cellaDietro = (x+1, y)
+        cellaDietro = (x, y+1)
 
+FINE guardaIntorno
 
 ARDUINO:
 
