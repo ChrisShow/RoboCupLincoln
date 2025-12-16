@@ -142,26 +142,31 @@ cellaDestra: Cella = None
 cellaSinistra: Cella = None
 cellaDietro: Cella = None
 direzione = 1
-# TODO avvia telecamera
+codRilevazione = 0
+# TODO inizializza posizione telecamera e avvia telecamera
 
 # DIREZIONI: 0=SOPRA, 1=DESTRA, 2=SINISTRA, 3=SOTTO
 
 def guardaIntorno():
     str = ""
-    # TODO str proviene da ARDUINO
+    ''' TODO str proviene da ARDUINO tramite una ricezione bloccante ed è una stringa formata da 3 numeri separati da una virgola
+        I numeri possono essere solo 0 o 1, il primo indica se in quella direzione non c'è un ostacolo, il secondo si.
+        Il primo dei 3 numeri controlla gli ostacoli dritto, il secondo a destra, il terzo a sinistra, il quarto dietro
+    '''
     dritto = int(str.split(",")[0])
     destra = int(str.split(",")[1])
     sinistra = int(str.split(",")[2])
 
     if dritto == 0:
-        # TODO
-        """
-        sposta telecamera dritto
-        rilevazione = rileva()
-        if rilevazione == lettera and not memoriaCelle.cellaGiaVisitata(cellaCorrente):
-            rilascia_medikit()
-        elif rilevazione == colore and not memoriaCelle.cellaGiaVisitata(cellaCorrente):
-            mostraColore() 
+        """ TODO
+        se non si è mai visitata la cella corrente:
+            sposta telecamera dritto rispetto alla direzione in cui si trova il robottino
+            scatta una foto e salvala nella cartella img con nome imgcodRilevazione.jpg
+            codRilevazione++
+            se nella foto è presente un colore tra verde, rosso e giallo:
+                se è presente allora accendi i led del colore corrispondente
+            altrimenti se nella foto è presente una lettera H o S o U:
+                dì ad arduino di azionare la ruota e far cadere un medikit
             """
     elif dritto == 1:
         if direzione == 0:
@@ -178,14 +183,15 @@ def guardaIntorno():
         listaCelleNonVisitate.insert(0, Cella(cellaDritto.getX(), cellaDritto.getY()))
     
     if destra == 0:
-        # TODO
-        """
-        sposta telecamera destra
-        rilevazione = rileva()
-        if rilevazione == lettera and not memoriaCelle.cellaGiaVisitata(cellaCorrente):
-            rilascia_medikit()
-        elif rilevazione == colore and not memoriaCelle.cellaGiaVisitata(cellaCorrente):
-            mostraColore() 
+        """ TODO
+        se non si è mai visitata la cella corrente:
+            sposta telecamera a destra rispetto alla direzione in cui si trova il robottino
+            scatta una foto e salvala nella cartella img con nome imgcodRilevazione.jpg
+            codRilevazione++
+            se nella foto è presente un colore tra verde, rosso e giallo:
+                se è presente allora accendi i led del colore corrispondente
+            altrimenti se nella foto è presente una lettera H o S o U:
+                dì ad arduino di azionare la ruota e far cadere un medikit
             """
     elif destra == 1:
         if direzione == 0:
@@ -202,14 +208,15 @@ def guardaIntorno():
         listaCelleNonVisitate.insert(0, Cella(cellaDestra.getX(), cellaDestra.getY()))
 
     if sinistra == 0:
-        # TODO
-        """
-        sposta telecamera sinistra
-        rilevazione = rileva()
-        if rilevazione == lettera and not memoriaCelle.cellaGiaVisitata(cellaCorrente):
-            rilascia_medikit()
-        elif rilevazione == colore and not memoriaCelle.cellaGiaVisitata(cellaCorrente):
-            mostraColore() 
+        """ TODO
+        se non si è mai visitata la cella corrente:
+            sposta telecamera a sinistra rispetto alla direzione in cui si trova il robottino
+            scatta una foto e salvala nella cartella img con nome imgcodRilevazione.jpg
+            codRilevazione++
+            se nella foto è presente un colore tra verde, rosso e giallo:
+                se è presente allora accendi i led del colore corrispondente
+            altrimenti se nella foto è presente una lettera H o S o U:
+                dì ad arduino di azionare la ruota e far cadere un medikit
             """
     elif sinistra == 1:
         if direzione == 0:
