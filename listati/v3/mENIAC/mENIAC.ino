@@ -1,6 +1,10 @@
 #include <Wire.h>
 #include <VL53L0X.h>
 
+// Pin pulsante START
+#define START_BUTTON_PIN 2  // Usa pin con interrupt
+#define LED_PIN 13          // LED di stato
+
 // Configurazione sensori VL53L0X (8 sensori, 2 per angolo)
 #define NUM_VL53L0X 8
 #define XSHUT_PIN_START 22  // Pin XSHUT dal 22 al 29
@@ -20,15 +24,21 @@
 #define CENTER_TOLERANCE 10  // Tolleranza centratura (mm)
 #define ANGLE_TOLERANCE 3    // Tolleranza angolo (gradi)
 
+// Stati del sistema
+enum SystemState {
+  STATE_IDLE,           // In attesa di START
+  STATE_COUNTDOWN,      // Countdown 5 secondi
+  STATE_RUNNING,        // In esecuzione
+  STATE_STOPPED         // Fermo (premuto di nuovo)
+};
+
+SystemState currentState = STATE_IDLE;
+unsigned long countdownStart = 0;
+bool systemRunning = false;
+
 // Array sensori VL53L0X
 VL53L0X sensors[NUM_VL53L0X];
 uint8_t sensorAddresses[NUM_VL53L0X] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37};
-
-// Posizionamento sensori (2 per angolo)
-// Angolo anteriore-sinistro: 0, 1
-// Angolo anteriore-destro: 2, 3
-// Angolo posteriore-destro: 4, 5
-// Angolo posteriore-sinistro: 6, 7
 
 struct SensorData {
   uint16_t distFL1, distFL2;  // Front-Left corner
@@ -40,10 +50,22 @@ struct SensorData {
 
 SensorData sensorData;
 
+struct WallAnalysis {
+  bool present;
+  bool parallel;
+  int16_t angleDiff;
+  String alignment;
+};
+
 void setup() {
   Serial.begin(115200);
   Wire.begin();
-  Wire.setClock(400000); // I2C a 400kHz
+  Wire.setClock(400000);
+  
+  // Setup pulsante START
+  pinMode(START_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
   
   // Setup ultrasuoni
   pinMode(US_FRONT_TRIG, OUTPUT);
@@ -54,19 +76,141 @@ void setup() {
   pinMode(US_RIGHT_ECHO, INPUT);
   
   // Inizializza VL53L0X
+  Serial.println("Inizializzazione sensori...");
   initVL53L0X();
   
-  Serial.println("Sistema di allineamento inizializzato");
+  Serial.println("\n╔════════════════════════════════╗");
+  Serial.println("║  ROBOCUP RESCUE MAZE - READY   ║");
+  Serial.println("╚════════════════════════════════╝");
+  Serial.println("\n>> Premi il pulsante START per iniziare <<\n");
+  
+  // LED lampeggia per indicare pronto
+  blinkReady();
 }
 
 void loop() {
-  // Leggi tutti i sensori
-  readAllSensors();
+  // Gestione stato macchina
+  handleStateMachine();
   
-  // Analizza posizione e allineamento
-  analyzeAlignment();
+  // Se in esecuzione, esegui l'allineamento
+  if (currentState == STATE_RUNNING) {
+    readAllSensors();
+    analyzeAllWalls();
+    analyzeAlignment();
+  }
   
   delay(100);
+}
+
+void handleStateMachine() {
+  static bool lastButtonState = HIGH;
+  bool buttonState = digitalRead(START_BUTTON_PIN);
+  
+  // Rileva pressione pulsante (fronte di discesa)
+  if (lastButtonState == HIGH && buttonState == LOW) {
+    delay(50); // Debounce
+    
+    switch (currentState) {
+      case STATE_IDLE:
+        startCountdown();
+        break;
+        
+      case STATE_COUNTDOWN:
+        // Durante countdown, premere di nuovo annulla
+        cancelCountdown();
+        break;
+        
+      case STATE_RUNNING:
+        // Durante esecuzione, STOP
+        stopSystem();
+        break;
+        
+      case STATE_STOPPED:
+        // Da fermo, riavvia countdown
+        startCountdown();
+        break;
+    }
+  }
+  
+  lastButtonState = buttonState;
+  
+  // Gestione countdown
+  if (currentState == STATE_COUNTDOWN) {
+    unsigned long elapsed = millis() - countdownStart;
+    int remaining = 5 - (elapsed / 1000);
+    
+    if (remaining > 0) {
+      // LED lampeggia durante countdown
+      digitalWrite(LED_PIN, (millis() / 500) % 2);
+      
+      // Stampa countdown ogni secondo
+      static int lastPrinted = -1;
+      if (remaining != lastPrinted) {
+        Serial.print(">>> Avvio tra ");
+        Serial.print(remaining);
+        Serial.println(" secondi...");
+        lastPrinted = remaining;
+      }
+    } else {
+      // Countdown terminato - AVVIA
+      startSystem();
+    }
+  }
+}
+
+void startCountdown() {
+  currentState = STATE_COUNTDOWN;
+  countdownStart = millis();
+  
+  Serial.println("\n╔════════════════════════════════╗");
+  Serial.println("║     COUNTDOWN AVVIATO!         ║");
+  Serial.println("║  Premi di nuovo per annullare  ║");
+  Serial.println("╚════════════════════════════════╝\n");
+}
+
+void cancelCountdown() {
+  currentState = STATE_IDLE;
+  digitalWrite(LED_PIN, LOW);
+  
+  Serial.println("\n⚠ COUNTDOWN ANNULLATO\n");
+  Serial.println(">> Premi START per riavviare <<\n");
+  
+  blinkReady();
+}
+
+void startSystem() {
+  currentState = STATE_RUNNING;
+  systemRunning = true;
+  digitalWrite(LED_PIN, HIGH); // LED fisso ON
+  
+  Serial.println("\n╔════════════════════════════════╗");
+  Serial.println("║        SISTEMA ATTIVO!         ║");
+  Serial.println("║   Allineamento in corso...     ║");
+  Serial.println("╚════════════════════════════════╝\n");
+  
+  // TODO: Avvia motori / sistema di navigazione
+}
+
+void stopSystem() {
+  currentState = STATE_STOPPED;
+  systemRunning = false;
+  digitalWrite(LED_PIN, LOW);
+  
+  Serial.println("\n╔════════════════════════════════╗");
+  Serial.println("║      SISTEMA FERMATO!          ║");
+  Serial.println("╚════════════════════════════════╝\n");
+  Serial.println(">> Premi START per riavviare <<\n");
+  
+  // TODO: Ferma motori
+}
+
+void blinkReady() {
+  // Lampeggio veloce per 3 volte = PRONTO
+  for (int i = 0; i < 6; i++) {
+    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    delay(150);
+  }
+  digitalWrite(LED_PIN, LOW);
 }
 
 void initVL53L0X() {
@@ -84,21 +228,26 @@ void initVL53L0X() {
     
     sensors[i].setTimeout(500);
     if (!sensors[i].init()) {
-      Serial.print("Errore inizializzazione sensore ");
+      Serial.print("❌ Errore sensore ");
       Serial.println(i);
-      while(1);
+      while(1) {
+        digitalWrite(LED_PIN, (millis() / 200) % 2); // Lampeggio errore
+      }
     }
     
     sensors[i].setAddress(sensorAddresses[i]);
-    sensors[i].setMeasurementTimingBudget(20000); // 20ms per lettura veloce
+    sensors[i].setMeasurementTimingBudget(20000);
     
-    Serial.print("Sensore ");
+    Serial.print("✓ Sensore ");
     Serial.print(i);
-    Serial.println(" inizializzato");
+    Serial.println(" OK");
   }
 }
 
 void readAllSensors() {
+  // Leggi solo se sistema attivo
+  if (!systemRunning) return;
+  
   // Leggi VL53L0X
   sensorData.distFL1 = sensors[0].readRangeSingleMillimeters();
   sensorData.distFL2 = sensors[1].readRangeSingleMillimeters();
@@ -123,19 +272,152 @@ uint16_t readUltrasonic(uint8_t trigPin, uint8_t echoPin) {
   digitalWrite(trigPin, LOW);
   
   long duration = pulseIn(echoPin, HIGH, 30000);
-  if (duration == 0) return 8190; // Timeout
+  if (duration == 0) return 8190;
   
-  return (duration * 0.343) / 2; // mm
+  return (duration * 0.343) / 2;
+}
+
+WallAnalysis analyzeWall(uint16_t frontDist, uint16_t backDist, uint16_t usDistance) {
+  WallAnalysis result;
+  
+  result.present = (usDistance < WALL_THRESHOLD && usDistance > 20);
+  
+  if (!result.present) {
+    result.parallel = true;
+    result.angleDiff = 0;
+    result.alignment = "NO_WALL";
+    return result;
+  }
+  
+  result.angleDiff = frontDist - backDist;
+  result.parallel = (abs(result.angleDiff) < ANGLE_TOLERANCE);
+  
+  if (result.parallel) {
+    result.alignment = "PARALLEL";
+  } else if (result.angleDiff > 0) {
+    result.alignment = "DIVERGING";
+  } else {
+    result.alignment = "CONVERGING";
+  }
+  
+  return result;
+}
+
+void analyzeAllWalls() {
+  if (!systemRunning) return;
+  
+  Serial.println("\n=== ANALISI MURI ===");
+  
+  // Analizza lato SINISTRO
+  WallAnalysis leftWall = analyzeWall(
+    min(sensorData.distFL1, sensorData.distFL2),
+    min(sensorData.distBL1, sensorData.distBL2),
+    sensorData.usLeft
+  );
+  
+  Serial.print("SINISTRA: ");
+  Serial.print(leftWall.alignment);
+  if (leftWall.present && !leftWall.parallel) {
+    Serial.print(" (diff: ");
+    Serial.print(leftWall.angleDiff);
+    Serial.print("mm)");
+  }
+  Serial.println();
+  
+  // Analizza lato DESTRO
+  WallAnalysis rightWall = analyzeWall(
+    min(sensorData.distFR1, sensorData.distFR2),
+    min(sensorData.distBR1, sensorData.distBR2),
+    sensorData.usRight
+  );
+  
+  Serial.print("DESTRA: ");
+  Serial.print(rightWall.alignment);
+  if (rightWall.present && !rightWall.parallel) {
+    Serial.print(" (diff: ");
+    Serial.print(rightWall.angleDiff);
+    Serial.print("mm)");
+  }
+  Serial.println();
+  
+  // Analizza lato FRONTALE
+  bool frontWall = (sensorData.usFront < WALL_THRESHOLD);
+  int16_t frontLeftCorner = min(sensorData.distFL1, sensorData.distFL2);
+  int16_t frontRightCorner = min(sensorData.distFR1, sensorData.distFR2);
+  int16_t frontDiff = frontLeftCorner - frontRightCorner;
+  
+  Serial.print("FRONTE: ");
+  if (frontWall) {
+    if (abs(frontDiff) < ANGLE_TOLERANCE) {
+      Serial.println("PARALLEL");
+    } else {
+      Serial.print(frontDiff > 0 ? "TILTED_LEFT" : "TILTED_RIGHT");
+      Serial.print(" (diff: ");
+      Serial.print(frontDiff);
+      Serial.println("mm)");
+    }
+  } else {
+    Serial.println("NO_WALL");
+  }
+  
+  detectSpecialCases(leftWall, rightWall, frontWall);
+}
+
+void detectSpecialCases(WallAnalysis left, WallAnalysis right, bool front) {
+  Serial.println("\n--- Situazione rilevata ---");
+  
+  if (!left.present && !right.present && front) {
+    Serial.println("⚠ POSSIBILE OSTACOLO CENTRALE");
+  }
+  
+  if (left.present && right.present && left.parallel && right.parallel) {
+    int16_t robotRotation = (left.angleDiff + right.angleDiff) / 2;
+    if (abs(robotRotation) > ANGLE_TOLERANCE) {
+      Serial.print("⚠ ROBOT RUOTATO: ");
+      Serial.print(robotRotation > 0 ? "senso orario" : "senso antiorario");
+      Serial.print(" (");
+      Serial.print(abs(robotRotation));
+      Serial.println("mm)");
+    } else {
+      Serial.println("✓ Robot allineato correttamente");
+    }
+  }
+  
+  if ((left.present && !left.parallel) || (right.present && !right.parallel)) {
+    Serial.println("⚠ MURO STORTO O OSTACOLO INCLINATO");
+    
+    if (left.present && !left.parallel) {
+      Serial.print("  Lato SX: ");
+      Serial.println(left.alignment);
+    }
+    if (right.present && !right.parallel) {
+      Serial.print("  Lato DX: ");
+      Serial.println(right.alignment);
+    }
+  }
+  
+  if (left.present && right.present) {
+    if (!left.parallel && !right.parallel) {
+      bool narrowing = (left.angleDiff < 0 && right.angleDiff > 0);
+      bool widening = (left.angleDiff > 0 && right.angleDiff < 0);
+      
+      if (narrowing) {
+        Serial.println("⚠ CORRIDOIO CHE SI RESTRINGE");
+      } else if (widening) {
+        Serial.println("⚠ CORRIDOIO CHE SI ALLARGA");
+      }
+    }
+  }
 }
 
 void analyzeAlignment() {
-  // Calcola distanze medie per ogni lato
+  if (!systemRunning) return;
+  
   uint16_t frontLeft = min(sensorData.distFL1, sensorData.distFL2);
   uint16_t frontRight = min(sensorData.distFR1, sensorData.distFR2);
   uint16_t backLeft = min(sensorData.distBL1, sensorData.distBL2);
   uint16_t backRight = min(sensorData.distBR1, sensorData.distBR2);
   
-  // Rileva presenza muri
   bool wallFront = sensorData.usFront < WALL_THRESHOLD;
   bool wallLeft = sensorData.usLeft < WALL_THRESHOLD;
   bool wallRight = sensorData.usRight < WALL_THRESHOLD;
@@ -146,16 +428,11 @@ void analyzeAlignment() {
   Serial.print("Muri - F:"); Serial.print(wallFront); Serial.print(" L:"); Serial.print(wallLeft); 
   Serial.print(" R:"); Serial.println(wallRight);
   
-  // Calcola errori di allineamento
   int16_t lateralError = 0;
   int16_t angularError = 0;
   
-  // Allineamento laterale (sinistra-destra)
   if (wallLeft && wallRight) {
-    // Entrambi i muri presenti - centra tra i due
     lateralError = sensorData.usLeft - sensorData.usRight;
-    
-    // Calcola errore angolare
     int16_t leftDiff = sensorData.distFL1 - sensorData.distBL1;
     int16_t rightDiff = sensorData.distFR1 - sensorData.distBR1;
     angularError = (leftDiff + rightDiff) / 2;
@@ -163,32 +440,25 @@ void analyzeAlignment() {
     Serial.print("Centratura L/R - Errore: "); Serial.print(lateralError); Serial.println(" mm");
     
   } else if (wallLeft) {
-    // Solo muro sinistro - mantieni distanza fissa
-    int16_t targetDist = (TILE_SIZE - ROBOT_SIZE) / 2; // Distanza ideale dal muro
+    int16_t targetDist = (TILE_SIZE - ROBOT_SIZE) / 2;
     lateralError = sensorData.usLeft - targetDist;
-    
-    // Errore angolare dal lato sinistro
     angularError = sensorData.distFL1 - sensorData.distBL1;
     
     Serial.print("Allineamento a SX - Errore: "); Serial.print(lateralError); Serial.println(" mm");
     
   } else if (wallRight) {
-    // Solo muro destro - mantieni distanza fissa
     int16_t targetDist = (TILE_SIZE - ROBOT_SIZE) / 2;
     lateralError = targetDist - sensorData.usRight;
-    
-    // Errore angolare dal lato destro
     angularError = sensorData.distFR1 - sensorData.distBR1;
     
     Serial.print("Allineamento a DX - Errore: "); Serial.print(lateralError); Serial.println(" mm");
   }
   
-  // Verifica allineamento
   bool isAligned = (abs(lateralError) < CENTER_TOLERANCE) && 
                    (abs(angularError) < ANGLE_TOLERANCE);
   
   Serial.print("Errore angolare: "); Serial.print(angularError); Serial.println(" mm");
-  Serial.print("ALLINEATO: "); Serial.println(isAligned ? "SI" : "NO");
+  Serial.print("ALLINEATO: "); Serial.println(isAligned ? "✓ SI" : "✗ NO");
   
   if (!isAligned) {
     Serial.println("Correzione necessaria:");
@@ -203,20 +473,4 @@ void analyzeAlignment() {
       Serial.print(abs(angularError)); Serial.println(" mm");
     }
   }
-}
-
-// Funzioni di utilità per il controllo motori (da implementare)
-void correctAlignment(int16_t lateralError, int16_t angularError) {
-  // TODO: implementa controllo motori per correzione
-  // lateralError: positivo = spostare a destra, negativo = spostare a sinistra
-  // angularError: positivo = ruotare orario, negativo = ruotare antiorario
-}
-
-bool isWallPresent(uint16_t distance) {
-  return distance < WALL_THRESHOLD && distance > 20;
-}
-
-float getDistanceFromWall(uint16_t sensor1, uint16_t sensor2) {
-  // Usa il minimo tra i due sensori dell'angolo
-  return min(sensor1, sensor2);
 }
