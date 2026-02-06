@@ -1,0 +1,599 @@
+# import eventuali
+import cv2
+import os
+import sys
+import numpy as np
+import pytesseract
+from datetime import datetime
+
+# classe Cella: rappresenta una tessera del labirinto 
+# con delle coordinate cartesiane x e y
+class Cella:
+
+    # costruttore
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    
+    # metodo che riceve una coppia di coordinate e ritorna un booleano
+    # a seconda se esse corrispondano a quelle dell'oggetto oppure no
+    def confronto(self, x, y):
+        if self.x == x and self.y == y:
+            return True
+        return False
+    
+    # metodo che definisce come confrontare due oggetti Cella
+    def __eq__(self, altraCella):
+        if not isinstance(altraCella, Cella):
+            return False
+        return self.getX() == altraCella.getX() and self.getY() == altraCella.getY()
+    
+    # getters e setters
+    def setX(self, x):
+        self.x = x
+    def setY(self, y):
+        self.y = y
+    def getX(self):
+        return self.x
+    def getY(self):
+        return self.y
+
+# classe MemoriaCelle: rappresenta una lista di celle visitate
+# dalla più recentemente alla meno recentemente
+class MemoriaCelle:
+
+    # costruttore
+    def __init__(self):
+        self.memoria = []
+        self.testa = 0  # Indice del primo elemento vuoto
+    
+    # metodo che inserisce un elemento in cima alla lista
+    def push(self, elemento):
+        if elemento is None:
+            return
+        self.memoria.insert(0, elemento)    
+        
+    # metodo che riceve una cella e restituisce un intero in base 
+    # quante mosse prima è stata visitata quella cella
+    # ritorna -1 se la cella passata come parametro non è stata ancora visitata
+    # ritorna -2 se la cella passata come parametro è nulla
+    def storicoCella(self, elemento):
+        if elemento is None:
+            return -2
+        for i, cella in enumerate(self.memoria):
+            if cella.confronto(elemento.getX(), elemento.getY()):
+                return i
+        return -1
+    
+    # metodo che riceve una cella e restituisce un booleano in base 
+    # al fatto se la cella è già stata visitata in passato o meno
+    # dalla mossa precedente in poi
+    def cellaGiaVisitata(self, elemento):
+        if elemento is None:
+            return False
+        for i, cella in enumerate(self.memoria, start=1):
+            if cella.confronto(elemento.getX(), elemento.getY()):
+                return True
+        return False
+
+    # Riceve 3 celle rappresentanti le direzioni dritto, destra e sinistra
+    # e ritorna la direzione da prendere.
+    # 0 = DRITTO, 1 = DESTRA, 2 = SINISTRA, 3 = DIETRO
+    def scegliDirezione(self, dritto, destra, sinistra):
+
+        storico_dritto = -1
+        storico_destra = -1
+        storico_sinistra = -1
+        
+        trovata_dritto = False
+        trovata_destra = False
+        trovata_sinistra = False
+        
+        # Inizializza i valori se la cella è None
+        if dritto is None:
+            storico_dritto = -1
+            trovata_dritto = True
+        
+        if destra is None:
+            storico_destra = -1
+            trovata_destra = True
+        
+        if sinistra is None:
+            storico_sinistra = -1
+            trovata_sinistra = True
+        
+        # Scansiona la memoria per trovare le celle
+        for i, cella in enumerate(self.memoria):
+            if trovata_dritto and trovata_sinistra and trovata_destra:
+                break
+            
+            if not trovata_dritto and cella.confronto(dritto.getX(), dritto.getY()):
+                trovata_dritto = True
+                storico_dritto = i
+            
+            if not trovata_destra and cella.confronto(destra.getX(), destra.getY()):
+                trovata_destra = True
+                storico_destra = i
+            
+            if not trovata_sinistra and cella.confronto(sinistra.getX(), sinistra.getY()):
+                trovata_sinistra = True
+                storico_sinistra = i
+        
+        # Restituisce la direzione
+        if not trovata_dritto:
+            return 0 # Vai dritto
+        if not trovata_destra:
+            return 1 # Vai a dx
+        if not trovata_sinistra:
+            return 2 # Vai a sx
+        
+        # Caso in cui abbiamo visitato già tutte le celle circostanti
+        if storico_dritto > storico_destra and storico_dritto > storico_sinistra:
+            return 0 # Vai dritto
+        elif storico_destra > storico_dritto and storico_destra > storico_sinistra:
+            return 1 # Vai a dx
+        elif storico_sinistra > storico_dritto and storico_sinistra > storico_destra:
+            return 2 # Vai a sx
+        elif storico_dritto == -1 and storico_destra == -1 and storico_sinistra == -1:
+            return 3 # Vai dietro
+
+# variabili globali
+memoriaCelle: MemoriaCelle = MemoriaCelle()
+listaCelleNonVisitate = []
+listaCelleNonPercorribili = []
+cellaCorrente: Cella = Cella(0,0)
+cellaDritto: Cella = None
+cellaDestra: Cella = None
+cellaSinistra: Cella = None
+cellaDietro: Cella = None
+COLOR_THRESHOLD = 300
+direzione = 1
+codRilevazione = 0
+# TODO inizializza posizione telecamera e avvia telecamera
+
+# DIREZIONI: 0=SOPRA, 1=DESTRA, 2=SINISTRA, 3=SOTTO
+
+def guardaIntorno():
+    str = ""
+    ''' TODO str proviene da ARDUINO tramite una ricezione bloccante ed è una stringa formata da 3 numeri separati da una virgola
+        I numeri possono essere solo 0 o 1, il primo indica se in quella direzione non c'è un ostacolo, il secondo si.
+        Il primo dei 3 numeri controlla gli ostacoli dritto, il secondo a destra, il terzo a sinistra, il quarto dietro
+    '''
+    dritto = int(str.split(",")[0])
+    destra = int(str.split(",")[1])
+    sinistra = int(str.split(",")[2])
+
+    if dritto == 0:
+        if cellaCorrente not in memoriaCelle:
+            if direzione == 0:
+                cellaDritto = Cella(cellaCorrente.getX(), cellaCorrente.getY()+1)
+            elif direzione == 1:
+                cellaDritto = Cella(cellaCorrente.getX()+1, cellaCorrente.getY())
+            elif direzione == 2:
+                cellaDritto = Cella(cellaCorrente.getX()-1, cellaCorrente.getY())
+            elif direzione == 3:
+                cellaDritto = Cella(cellaCorrente.getX(), cellaCorrente.getY()-1)
+    elif dritto == 1:
+        """ TODO
+            sposta telecamera dritto rispetto alla direzione in cui si trova il robottino
+        """
+        scattaFoto()
+        """
+            scatta una foto e salvala nella cartella img con nome imgcodRilevazione.jpg
+            codRilevazione++
+            se nella foto è presente un colore tra verde, rosso e giallo:
+            se è presente allora accendi i led del colore corrispondente
+            altrimenti se nella foto è presente una lettera H o S o U:
+            fai l'azione conseguente
+        """
+    if cellaDritto in listaCelleNonPercorribili:
+        cellaDritto = None
+    elif not cellaDritto in listaCelleNonVisitate:
+        listaCelleNonVisitate.insert(0, Cella(cellaDritto.getX(), cellaDritto.getY()))
+    
+    if destra == 0:
+        if direzione == 0:
+            cellaDestra = Cella(cellaCorrente.getX()+1, cellaCorrente.getY())
+        elif direzione == 1:
+            cellaDestra = Cella(cellaCorrente.getX(), cellaCorrente.getY()-1)
+        elif direzione == 2:
+            cellaDestra = Cella(cellaCorrente.getX(), cellaCorrente.getY()+1)
+        elif direzione == 3:
+            cellaDestra = Cella(cellaCorrente.getX()-1, cellaCorrente.getY())
+    elif destra == 1:
+        """ TODO
+            sposta telecamera a destra rispetto alla direzione in cui si trova il robottino
+        """
+        scattaFoto()
+        """
+            scatta una foto e salvala nella cartella img con nome imgcodRilevazione.jpg
+            codRilevazione++
+            se nella foto è presente un colore tra verde, rosso e giallo:
+            se è presente allora accendi i led del colore corrispondente
+            altrimenti se nella foto è presente una lettera H o S o U:
+            fai l'azione conseguente
+        """ 
+    if cellaDestra in listaCelleNonPercorribili:
+        cellaDestra = None
+    elif not cellaDestra in listaCelleNonVisitate:
+        listaCelleNonVisitate.insert(0, Cella(cellaDestra.getX(), cellaDestra.getY()))
+
+    if sinistra == 0:
+        if direzione == 0:
+            cellaSinistra = Cella(cellaCorrente.getX()-1, cellaCorrente.getY())
+        elif direzione == 1:
+            cellaSinistra = Cella(cellaCorrente.getX(), cellaCorrente.getY()+1)
+        elif direzione == 2:
+            cellaSinistra = Cella(cellaCorrente.getX(), cellaCorrente.getY()-1)
+        elif direzione == 3:
+            cellaSinistra = Cella(cellaCorrente.getX()+1, cellaCorrente.getY())
+    elif sinistra == 1:
+        """ TODO
+            sposta telecamera a sinistra rispetto alla direzione in cui si trova il robottino
+        """
+        scattaFoto()
+        """
+            scatta una foto e salvala nella cartella img con nome imgcodRilevazione.jpg
+            codRilevazione++
+            se nella foto è presente un colore tra verde, rosso e giallo:
+            se è presente allora accendi i led del colore corrispondente
+            altrimenti se nella foto è presente una lettera H o S o U:
+            fai l'azione conseguente
+        """
+    if cellaSinistra in listaCelleNonPercorribili:
+        cellaSinistra = None
+    elif not cellaSinistra in listaCelleNonVisitate:
+        listaCelleNonVisitate.insert(0, Cella(cellaSinistra.getX(), cellaSinistra.getY()))
+
+    """ TODO Questa parte non so se serve:
+        if direzione == 0:
+            cellaDietro = Cella(cellaCorrente.getX(), cellaCorrente.getY()-1)
+        elif direzione == 1:
+            cellaDietro = Cella(cellaCorrente.getX()-1, cellaCorrente.getY())
+        elif direzione == 2:
+            cellaDietro = Cella(cellaCorrente.getX()+1, cellaCorrente.getY())
+        elif direzione == 3:
+            cellaDietro = Cella(cellaCorrente.getX(), cellaCorrente.getY()+1)
+    """
+    
+
+def detect_colors_in_image(image):
+    """Rileva rosso, giallo, verde."""
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    lower_red1 = np.array([0, 100, 100])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 100, 100])
+    upper_red2 = np.array([179, 255, 255])
+
+    lower_yellow = np.array([20, 100, 100])
+    upper_yellow = np.array([40, 255, 255])
+
+    lower_green = np.array([40, 100, 100])
+    upper_green = np.array([80, 255, 255])
+
+    mask_red1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
+    mask_red2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
+    mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+
+    mask_yellow = cv2.inRange(hsv_image, lower_yellow, upper_yellow)
+    mask_green = cv2.inRange(hsv_image, lower_green, upper_green)
+
+    mask_red = cv2.GaussianBlur(mask_red, (5, 5), 0)
+    mask_yellow = cv2.GaussianBlur(mask_yellow, (5, 5), 0)
+    mask_green = cv2.GaussianBlur(mask_green, (5, 5), 0)
+
+    red_pixels = cv2.countNonZero(mask_red)
+    yellow_pixels = cv2.countNonZero(mask_yellow)
+    green_pixels = cv2.countNonZero(mask_green)
+
+    has_red = red_pixels >= COLOR_THRESHOLD
+    has_yellow = yellow_pixels >= COLOR_THRESHOLD
+    has_green = green_pixels >= COLOR_THRESHOLD
+
+    print(f"[DEBUG] Pixel - Rosso: {red_pixels}, Giallo: {yellow_pixels}, Verde: {green_pixels}")
+
+    return {
+        "rosso": has_red,
+        "giallo": has_yellow,
+        "verde": has_green,
+        "red_pixels": red_pixels,
+        "yellow_pixels": yellow_pixels,
+        "green_pixels": green_pixels,
+    }
+
+def extract_text_regions(image):
+    """
+    Estrae le regioni dove sono i caratteri neri usando edge detection.
+    Restituisce una lista di ROI (region of interest) ritagliati.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Inverti (sfondo bianco -> nero, testo nero -> bianco)
+    gray_inv = cv2.bitwise_not(gray)
+    
+    # Thresholding per isolare il testo nero
+    _, thresh = cv2.threshold(gray_inv, 150, 255, cv2.THRESH_BINARY)
+    
+    # Trova contorni
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    rois = []
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        # Filtra per dimensione ragionevole (evita rumore piccolo)
+        if area > 1000:  # Minimo 1000 pixel di area
+            x, y, w, h = cv2.boundingRect(contour)
+            # Padding attorno al carattere
+            padding = 20
+            x_start = max(0, x - padding)
+            y_start = max(0, y - padding)
+            x_end = min(image.shape[1], x + w + padding)
+            y_end = min(image.shape[0], y + h + padding)
+            
+            roi = image[y_start:y_end, x_start:x_end]
+            if roi.size > 0:
+                rois.append(roi)
+                print(f"[DEBUG] Estratto ROI: {roi.shape}")
+    
+    return rois
+
+def preprocess_for_ocr_large(image):
+    """
+    Preprocessing per lettere GRANDI.
+    Ridimensiona a dimensione ottimale per Tesseract (~300-400 pixel di altezza).
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Normalizza l'immagine
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    
+    # Ridimensiona se l'immagine è troppo grande
+    h, w = gray.shape
+    if h > 400:
+        scale = 400 / h
+        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+    
+    # Thresholding adattivo
+    thresh = cv2.adaptiveThreshold(
+        gray, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        blockSize=21,
+        C=5
+    )
+    
+    # Dilatazione leggera per connettere i pixel
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+    
+    # Erosione leggera per pulire
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+    
+    # Blur finale
+    thresh = cv2.GaussianBlur(thresh, (3, 3), 0)
+    
+    return thresh
+
+def detect_letters_HSU_optimized(image):
+    """
+    Ottimizzato per lettere grandi.
+    Estrae le regioni di testo e le elabora singolarmente.
+    """
+    found_letters = set()
+    
+    # Config Tesseract aggressivo
+    custom_config = (
+        r"--psm 11 "  # PSM 11: sparse text
+        r"--oem 3 "
+        r"-c tessedit_char_whitelist=HSU "
+        r"-c load_system_dawg=0 "
+        r"-c load_freq_dawg=0 "
+        r"-c classify_bln_numeric_mode=0"
+    )
+    
+    # Estrai le regioni di interesse
+    rois = extract_text_regions(image)
+    
+    if not rois:
+        print("[AVVISO] Nessuna regione di testo trovata con edge detection")
+        # Fallback: prova su tutta l'immagine
+        rois = [image]
+    
+    # Processa ogni ROI
+    for idx, roi in enumerate(rois):
+        angles = [0, 90, 180, 270]
+        
+        for angle in angles:
+            # Preprocess ROI
+            proc = preprocess_for_ocr_large(roi)
+            
+            # Ruota
+            if angle == 0:
+                rotated = proc
+            elif angle == 90:
+                rotated = cv2.rotate(proc, cv2.ROTATE_90_CLOCKWISE)
+            elif angle == 180:
+                rotated = cv2.rotate(proc, cv2.ROTATE_180)
+            elif angle == 270:
+                rotated = cv2.rotate(proc, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            
+            # OCR
+            try:
+                text = pytesseract.image_to_string(rotated, config=custom_config)
+                text = text.upper().strip()
+                
+                if text:
+                    print(f"[DEBUG] ROI {idx}, Rotazione {angle}°: '{text}'")
+                
+                # Filtra
+                for ch in text:
+                    if ch in ["H", "S", "U"]:
+                        found_letters.add(ch)
+                        print(f"[OK] Trovata lettera: {ch}")
+            
+            except Exception as e:
+                print(f"[AVVISO] Errore OCR ROI {idx}, rot {angle}°: {e}")
+            
+            if found_letters == {"H", "S", "U"}:
+                break
+        
+        if found_letters == {"H", "S", "U"}:
+            break
+    
+    print(f"[DEBUG] Lettere trovate totali: {found_letters if found_letters else 'nessuna'}")
+    return found_letters
+
+def scattaFoto():
+    SAVE_PATH = "/home/robottino/Desktop/venv/colorLetters/images"
+
+    if not os.path.exists(SAVE_PATH):
+        print(f"[INFO] Directory '{SAVE_PATH}' non trovata. Creazione in corso...")
+        try:
+            os.makedirs(SAVE_PATH, exist_ok=True)
+            print(f"[OK] Directory creata: {SAVE_PATH}")
+        except Exception as e:
+            print(f"[ERRORE] Impossibile creare la directory: {e}")
+            sys.exit(1)
+
+    if not os.access(SAVE_PATH, os.W_OK):
+        print(f"[ERRORE] Nessun permesso di scrittura sulla directory: {SAVE_PATH}")
+        sys.exit(1)
+
+    print(f"[INFO] Directory di salvataggio: {SAVE_PATH}")
+
+    # Inizializza camera
+    print("[INFO] Inizializzazione della camera (V4L2)...")
+    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+    if not cap.isOpened():
+        print("[ERRORE] Impossibile accedere alla camera USB!")
+        sys.exit(1)
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
+    print("[INFO] Riscaldamento della camera...")
+    for i in range(10):
+        ret, _ = cap.read()
+
+    print("[INFO] Acquisizione della foto...")
+    ret, frame = cap.read()
+    if not ret:
+        print("[ERRORE] Impossibile acquisire il frame dalla camera!")
+        cap.release()
+        sys.exit(1)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"foto_{timestamp}.jpg"
+    filepath = os.path.join(SAVE_PATH, filename)
+
+    if not cv2.imwrite(filepath, frame):
+        print(f"[ERRORE] Impossibile salvare l'immagine in: {filepath}")
+        cap.release()
+        sys.exit(1)
+
+    h, w, c = frame.shape
+    print(f"[OK] Foto salvata: {filepath}")
+    print(f"[INFO] Risoluzione: {w}x{h}, canali: {c}")
+
+    cap.release()
+
+    # =================== ANALISI ===================
+
+    print("\n===== ANALISI IMMAGINE =====")
+
+    # Colori
+    color_res = detect_colors_in_image(frame)
+
+    code = None
+
+    if color_res["rosso"]:
+        code = 1
+        print("[DECISION] Codice 1: ROSSO rilevato")
+    elif color_res["giallo"]:
+        code = 2
+        print("[DECISION] Codice 2: GIALLO rilevato")
+    elif color_res["verde"]:
+        code = 3
+        print("[DECISION] Codice 3: VERDE rilevato")
+
+    # Lettere
+    letters_found = set()
+    if code is None:
+        print("[INFO] Nessun colore rilevato. Analizzando lettere...")
+        letters_found = detect_letters_HSU_optimized(frame)
+
+        if "H" in letters_found:
+            code = 4
+            print("[DECISION] Codice 4: Lettera H rilevata")
+        elif "S" in letters_found:
+            code = 5
+            print("[DECISION] Codice 5: Lettera S rilevata")
+        elif "U" in letters_found:
+            code = 6
+            print("[DECISION] Codice 6: Lettera U rilevata")
+
+    if code is None:
+        code = 0
+        print("[DECISION] Codice 0: Nessuna condizione soddisfatta")
+
+    # Output
+    print("\n" + "="*50)
+    print("--- RISULTATI FINALI ---")
+    print("="*50)
+    print(f"Rosso presente (>= {COLOR_THRESHOLD} px): {'si' if color_res['rosso'] else 'no'}")
+    print(f"Giallo presente (>= {COLOR_THRESHOLD} px): {'si' if color_res['giallo'] else 'no'}")
+    print(f"Verde presente (>= {COLOR_THRESHOLD} px): {'si' if color_res['verde'] else 'no'}")
+    print(f"Lettere trovate (H/S/U): {', '.join(sorted(letters_found)) if letters_found else 'nessuna'}")
+    print(f"\n🎯 CODICE RESTITUITO: {code}")
+    print("="*50)
+
+    return code
+
+
+# funzione principale del programma   
+def main():
+    valutazioneFronte()
+    
+    guardaIntorno()
+    while listaCelleNonVisitate:
+        prossimaDirezione = memoriaCelle.scegliDirezione(cellaDritto, cellaDestra, cellaSinistra)
+        esito = 1
+        # TODO esito = muoviProssimaDirezione(prossimaDirezione) AD ARDUINO
+        if esito == 1:
+            if prossimaDirezione == 0:
+                if cellaDritto in listaCelleNonVisitate:
+                    listaCelleNonVisitate.remove(cellaDritto)
+                memoriaCelle.push(Cella(cellaDritto.getX(), cellaDritto.getY()))
+                cellaCorrente = Cella(cellaDritto)
+            elif prossimaDirezione == 1:
+                if cellaDestra in listaCelleNonVisitate:
+                    listaCelleNonVisitate.remove(cellaDestra)
+                memoriaCelle.push(Cella(cellaDestra.getX(), cellaDestra.getY()))
+                cellaCorrente = Cella(cellaDestra)
+            elif prossimaDirezione == 2:
+                if cellaSinistra in listaCelleNonVisitate:
+                    listaCelleNonVisitate.remove(cellaSinistra)
+                memoriaCelle.push(Cella(cellaSinistra.getX(), cellaSinistra.getY()))
+                cellaCorrente = Cella(cellaSinistra)
+            elif prossimaDirezione == 3:
+                if cellaDietro in listaCelleNonVisitate:
+                    listaCelleNonVisitate.remove(cellaDietro)
+                memoriaCelle.push(Cella(cellaDietro.getX(), cellaDietro.getY()))
+                cellaCorrente = Cella(cellaDietro)
+        elif esito == 0:
+            if prossimaDirezione == 0 and not cellaDritto in listaCelleNonPercorribili:
+                listaCelleNonPercorribili.insert(0, Cella(cellaDritto.getX(), cellaDritto.getY()))
+            elif prossimaDirezione == 1 and not cellaDestra in listaCelleNonPercorribili:
+                listaCelleNonPercorribili.insert(0, Cella(cellaDestra.getX(), cellaDestra.getY()))
+            elif prossimaDirezione == 2 and not cellaSinistra in listaCelleNonPercorribili:
+                listaCelleNonPercorribili.insert(0, Cella(cellaSinistra.getX(), cellaSinistra.getY()))
+            elif prossimaDirezione == 3 and not cellaDietro in listaCelleNonPercorribili:
+                listaCelleNonPercorribili.insert(0, Cella(cellaDietro.getX(), cellaDietro.getY()))
+        
+        guardaIntorno()
+
+if __name__ == "__main__":
+    main()
