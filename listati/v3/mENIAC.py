@@ -20,7 +20,7 @@ from datetime import datetime
 # =================== CONFIGURAZIONE ===================
 
 # Configurazione seriale
-SERIAL_PORT = '/dev/ttyACM0'  # Modifica se necessario (ttyUSB0, ttyACM1, ecc.)
+SERIAL_PORT = '/dev/ttyACM0'  # Arduino Mega via USB
 SERIAL_BAUDRATE = 9600
 SERIAL_TIMEOUT = 5  # Aumentato per attendere movimento
 
