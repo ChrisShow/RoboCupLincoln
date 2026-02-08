@@ -22,7 +22,7 @@ from datetime import datetime
 # Configurazione seriale
 SERIAL_PORT = '/dev/ttyACM0'  # Modifica se necessario (ttyUSB0, ttyACM1, ecc.)
 SERIAL_BAUDRATE = 9600
-SERIAL_TIMEOUT = 2
+SERIAL_TIMEOUT = 5  # Aumentato per attendere movimento
 
 # Configurazione camera
 CAMERA_INDEX = 0
@@ -36,7 +36,7 @@ COLOR_THRESHOLD = 300  # Numero minimo di pixel per rilevare un colore
 TEXT_AREA_MIN = 1000   # Area minima per ROI di testo
 SAVE_PATH = "/home/robottino/Desktop/venv/colorLetters/images"
 
-# Codici di risposta
+# Codici di risposta per rilevazione colori/lettere
 CODE_NESSUNA_RILEVAZIONE = 0
 CODE_ROSSO = 1
 CODE_GIALLO = 2
@@ -44,6 +44,17 @@ CODE_VERDE = 3
 CODE_PHI = 4      # Φ
 CODE_PSI = 5      # Ψ
 CODE_OMEGA = 6    # Ω
+
+# Codici direzione da inviare ad Arduino
+DIR_TERMINA = 0
+DIR_DRITTO = 1
+DIR_DESTRA = 2
+DIR_SINISTRA = 3
+DIR_DIETRO = 4
+
+# Codici esito movimento (da Arduino)
+MOVIMENTO_FALLITO = 0
+MOVIMENTO_RIUSCITO = 1
 
 
 # =================== CLASSI ===================
@@ -120,11 +131,36 @@ class MemoriaCelle:
                 return True
         return False
     
-    def scegliDirezione(self, dritto, destra, sinistra):
+    def scegliDirezione(self, dritto, destra, sinistra, lista_non_percorribili):
         """
         Riceve 3 celle e restituisce la direzione da prendere
-        0 = DRITTO, 1 = DESTRA, 2 = SINISTRA, 3 = DIETRO
+        Esclude a priori le celle non percorribili (celle nere, muri già rilevati)
+        
+        Parametri:
+        - dritto, destra, sinistra: celle adiacenti (None se muro)
+        - lista_non_percorribili: lista delle celle da non visitare
+        
+        Ritorna:
+        1 = DRITTO rispetto alla direzione corrente
+        2 = DESTRA rispetto alla direzione corrente
+        3 = SINISTRA rispetto alla direzione corrente
+        4 = DIETRO rispetto alla direzione corrente
         """
+        
+        # Filtra le celle che sono nella lista non percorribili
+        if dritto is not None and dritto in lista_non_percorribili:
+            print(f"[FILTRO] Dritto escluso: cella {dritto} non percorribile")
+            dritto = None
+        
+        if destra is not None and destra in lista_non_percorribili:
+            print(f"[FILTRO] Destra escluso: cella {destra} non percorribile")
+            destra = None
+        
+        if sinistra is not None and sinistra in lista_non_percorribili:
+            print(f"[FILTRO] Sinistra escluso: cella {sinistra} non percorribile")
+            sinistra = None
+        
+        # Ora applica la logica normale
         storico_dritto = -1
         storico_destra = -1
         storico_sinistra = -1
@@ -150,23 +186,23 @@ class MemoriaCelle:
                 trovata_sinistra = True
                 storico_sinistra = i
         
-        # Restituisce la direzione
+        # Restituisce la direzione (codici 1-4 per Arduino)
         if not trovata_dritto:
-            return 0  # Vai dritto
+            return DIR_DRITTO  # 1 = Vai dritto
         if not trovata_destra:
-            return 1  # Vai a dx
+            return DIR_DESTRA  # 2 = Vai a dx
         if not trovata_sinistra:
-            return 2  # Vai a sx
+            return DIR_SINISTRA  # 3 = Vai a sx
         
         # Tutte le celle circostanti già visitate: vai verso la meno recente
         if storico_dritto > storico_destra and storico_dritto > storico_sinistra:
-            return 0
+            return DIR_DRITTO  # 1
         elif storico_destra > storico_dritto and storico_destra > storico_sinistra:
-            return 1
+            return DIR_DESTRA  # 2
         elif storico_sinistra > storico_dritto and storico_sinistra > storico_destra:
-            return 2
+            return DIR_SINISTRA  # 3
         elif storico_dritto == -1 and storico_destra == -1 and storico_sinistra == -1:
-            return 3  # Vai dietro
+            return DIR_DIETRO  # 4 = Vai dietro
 
 
 # =================== VARIABILI GLOBALI ===================
@@ -252,7 +288,7 @@ def riceviDaArduino():
 def inviaAdArduino(codice):
     """
     Invia un codice ad Arduino
-    codice: intero 0-6
+    codice: intero 0-6 (per rilevazione) o 0-4 (per direzione)
     """
     global ser
     
@@ -269,6 +305,68 @@ def inviaAdArduino(codice):
     except Exception as e:
         print(f"[ERRORE] Invio seriale fallito: {e}")
         return False
+
+
+def inviaDirezioneAdArduino(direzione_codice):
+    """
+    Invia la direzione calcolata ad Arduino
+    
+    Parametri:
+    - direzione_codice: intero 0-4
+      0 = TERMINA (nessuna cella da visitare)
+      1 = DRITTO
+      2 = DESTRA
+      3 = SINISTRA
+      4 = DIETRO
+    
+    Ritorna: True se invio riuscito, False altrimenti
+    """
+    direzioni_nomi = {
+        DIR_TERMINA: "TERMINA",
+        DIR_DRITTO: "DRITTO",
+        DIR_DESTRA: "DESTRA",
+        DIR_SINISTRA: "SINISTRA",
+        DIR_DIETRO: "DIETRO"
+    }
+    
+    nome_direzione = direzioni_nomi.get(direzione_codice, "SCONOSCIUTA")
+    
+    print(f"\n[INVIO DIREZIONE] Codice {direzione_codice} = {nome_direzione}")
+    
+    return inviaAdArduino(direzione_codice)
+
+
+def riceviConfermaMovimento():
+    """
+    Riceve la conferma del movimento da Arduino
+    
+    Ritorna:
+    - 1 se movimento riuscito
+    - 0 se movimento fallito (cella nera rilevata)
+    - None se errore di comunicazione
+    """
+    print("\n[INFO] In attesa conferma movimento da Arduino...")
+    
+    esito = None
+    tentativi = 0
+    max_tentativi = 3
+    
+    while esito is None and tentativi < max_tentativi:
+        esito = riceviDaArduino()
+        if esito is None:
+            tentativi += 1
+            print(f"[AVVISO] Tentativo {tentativi}/{max_tentativi} per conferma movimento...")
+            time.sleep(0.5)
+    
+    if esito == MOVIMENTO_RIUSCITO:
+        print("[OK] ✓ Movimento RIUSCITO")
+        return MOVIMENTO_RIUSCITO
+    elif esito == MOVIMENTO_FALLITO:
+        print("[AVVISO] ✗ Movimento FALLITO (cella nera o ostacolo)")
+        return MOVIMENTO_FALLITO
+    else:
+        print("[ERRORE] Nessuna conferma ricevuta da Arduino")
+        return None
 
 
 # =================== INIZIALIZZAZIONE CAMERA ===================
@@ -607,6 +705,27 @@ def calcolaCellaDietro():
         return Cella(x, y + 1)
 
 
+def getCellaByDirezione(direzione_codice):
+    """
+    Restituisce la cella corrispondente al codice direzione
+    
+    Parametri:
+    - direzione_codice: 1=DRITTO, 2=DESTRA, 3=SINISTRA, 4=DIETRO
+    
+    Ritorna: oggetto Cella o None
+    """
+    if direzione_codice == DIR_DRITTO:
+        return cellaDritto
+    elif direzione_codice == DIR_DESTRA:
+        return cellaDestra
+    elif direzione_codice == DIR_SINISTRA:
+        return cellaSinistra
+    elif direzione_codice == DIR_DIETRO:
+        return calcolaCellaDietro()
+    else:
+        return None
+
+
 def scansionaDirezione(nomeDirezione):
     """
     Gestisce la scansione di una singola direzione (fronte, destra, sinistra)
@@ -723,55 +842,86 @@ def guardaIntorno():
     print(f"  Destra:   {cellaDestra if cellaDestra else 'MURO'}")
     print(f"  Sinistra: {cellaSinistra if cellaSinistra else 'MURO'}")
     print(f"  Celle non visitate: {len(listaCelleNonVisitate)}")
+    print(f"  Celle non percorribili: {len(listaCelleNonPercorribili)}")
     print("="*60 + "\n")
 
 
-def muoviInDirezione(prossimaDirezione):
+def eseguiMovimento(direzione_codice):
     """
-    Invia comando ad Arduino per muoversi nella direzione specificata
-    Aggiorna la variabile direzione globale per le rotazioni
+    Aggiorna la posizione del robot dopo il movimento CONFERMATO
     
-    Ritorna: 1 se movimento riuscito, 0 se cella nera rilevata
+    Parametri:
+    - direzione_codice: 1=DRITTO, 2=DESTRA, 3=SINISTRA, 4=DIETRO
+    
+    Ritorna: True se aggiornamento riuscito, False altrimenti
     """
-    global direzione
+    global cellaCorrente, direzione
     
-    # Protocollo movimento
-    comando = f"MOVE:{prossimaDirezione}\n"
+    # Determina la cella di destinazione
+    cella_destinazione = getCellaByDirezione(direzione_codice)
     
-    try:
-        if ser:
-            ser.write(comando.encode('utf-8'))
-            ser.flush()
-            print(f"[INFO] Comando movimento inviato: direzione {prossimaDirezione}")
-            
-            # Aggiorna direzione in base alla rotazione
-            if prossimaDirezione == 1:  # DESTRA - ruota orario
-                direzione = (direzione + 1) % 4
-                print(f"[INFO] Rotazione: nuova direzione = {direzione}")
-            elif prossimaDirezione == 2:  # SINISTRA - ruota antiorario
-                direzione = (direzione - 1) % 4
-                print(f"[INFO] Rotazione: nuova direzione = {direzione}")
-            elif prossimaDirezione == 3:  # DIETRO - 180°
-                direzione = (direzione + 2) % 4
-                print(f"[INFO] Rotazione 180°: nuova direzione = {direzione}")
-            # prossimaDirezione == 0 (DRITTO) -> nessuna rotazione
-            
-            # Attendi completamento movimento
-            time.sleep(2)
-            
-            # Leggi esito da Arduino (1=ok, 0=cella nera)
-            esito = riceviDaArduino()
-            
-            if esito is not None:
-                print(f"[INFO] Esito movimento: {'OK' if esito == 1 else 'CELLA NERA'}")
-                return esito
-            else:
-                print("[AVVISO] Nessuna risposta da Arduino, assumo successo")
-                return 1
+    # Verifica validità cella destinazione
+    if cella_destinazione is None:
+        print("[ERRORE] Cella di destinazione non valida!")
+        return False
     
-    except Exception as e:
-        print(f"[ERRORE] Movimento fallito: {e}")
-        return 0
+    # Rimuovi da lista celle non visitate
+    if cella_destinazione in listaCelleNonVisitate:
+        listaCelleNonVisitate.remove(cella_destinazione)
+    
+    # Aggiungi alla memoria
+    memoriaCelle.push(Cella(cella_destinazione))
+    
+    # Aggiorna posizione corrente
+    cellaCorrente = Cella(cella_destinazione)
+    
+    # Aggiorna direzione globale in base alla rotazione
+    if direzione_codice == DIR_DRITTO:  # 1 = Dritto
+        # Direzione rimane invariata
+        pass
+    
+    elif direzione_codice == DIR_DESTRA:  # 2 = Destra
+        # Aggiorna direzione (ruota orario)
+        direzione = (direzione + 1) % 4
+        print(f"[INFO] Rotazione destra: nuova direzione = {direzione}")
+    
+    elif direzione_codice == DIR_SINISTRA:  # 3 = Sinistra
+        # Aggiorna direzione (ruota antiorario)
+        direzione = (direzione - 1) % 4
+        print(f"[INFO] Rotazione sinistra: nuova direzione = {direzione}")
+    
+    elif direzione_codice == DIR_DIETRO:  # 4 = Dietro
+        # Aggiorna direzione (180°)
+        direzione = (direzione + 2) % 4
+        print(f"[INFO] Rotazione 180°: nuova direzione = {direzione}")
+    
+    print(f"[OK] ✓ Movimento completato. Nuova posizione: {cellaCorrente}")
+    
+    return True
+
+
+def marcaCellaComeBloccata(direzione_codice):
+    """
+    Marca la cella di destinazione come non percorribile (cella nera)
+    
+    Parametri:
+    - direzione_codice: 1=DRITTO, 2=DESTRA, 3=SINISTRA, 4=DIETRO
+    """
+    cella_bloccata = getCellaByDirezione(direzione_codice)
+    
+    if cella_bloccata is None:
+        print("[AVVISO] Impossibile identificare cella bloccata")
+        return
+    
+    # Aggiungi a lista non percorribili se non già presente
+    if cella_bloccata not in listaCelleNonPercorribili:
+        listaCelleNonPercorribili.append(Cella(cella_bloccata))
+        print(f"[OK] Cella {cella_bloccata} marcata come NERA/NON PERCORRIBILE")
+    
+    # Rimuovi da lista celle non visitate se presente
+    if cella_bloccata in listaCelleNonVisitate:
+        listaCelleNonVisitate.remove(cella_bloccata)
+        print(f"[OK] Cella {cella_bloccata} rimossa da liste non visitate")
 
 
 # =================== MAIN ===================
@@ -809,89 +959,99 @@ def main():
             print(f"\n{'='*60}")
             print(f"[STATO] Posizione: {cellaCorrente}, Direzione: {direzione}")
             print(f"[STATO] Celle da visitare: {len(listaCelleNonVisitate)}")
+            print(f"[STATO] Celle non percorribili: {len(listaCelleNonPercorribili)}")
             print(f"{'='*60}")
             
-            # Calcola cella dietro per decisione
-            cellaDietro = calcolaCellaDietro()
+            # Scegli prossima direzione (ritorna codice 1-4)
+            # Passa anche la lista celle non percorribili per il filtro
+            direzione_scelta = memoriaCelle.scegliDirezione(
+                cellaDritto, 
+                cellaDestra, 
+                cellaSinistra,
+                listaCelleNonPercorribili
+            )
             
-            # Scegli prossima direzione
-            prossimaDirezione = memoriaCelle.scegliDirezione(cellaDritto, cellaDestra, cellaSinistra)
+            direzioni_nomi = {
+                DIR_DRITTO: "DRITTO",
+                DIR_DESTRA: "DESTRA",
+                DIR_SINISTRA: "SINISTRA",
+                DIR_DIETRO: "DIETRO"
+            }
             
-            direzioni_nomi = {0: "DRITTO", 1: "DESTRA", 2: "SINISTRA", 3: "DIETRO"}
-            print(f"[DECISIONE] Prossima direzione: {direzioni_nomi[prossimaDirezione]}")
+            print(f"[DECISIONE] Prossima direzione: {direzioni_nomi[direzione_scelta]} (codice {direzione_scelta})")
             
-            # Esegui movimento
-            esito = muoviInDirezione(prossimaDirezione)
+            # Invia direzione ad Arduino
+            if not inviaDirezioneAdArduino(direzione_scelta):
+                print("[ERRORE] Impossibile inviare direzione ad Arduino!")
+                break
             
-            if esito == 1:  # Movimento riuscito
-                # Aggiorna posizione
-                if prossimaDirezione == 0:  # Dritto
-                    if cellaDritto and cellaDritto in listaCelleNonVisitate:
-                        listaCelleNonVisitate.remove(cellaDritto)
-                    if cellaDritto:
-                        memoriaCelle.push(Cella(cellaDritto))
-                        cellaCorrente = Cella(cellaDritto)
-                
-                elif prossimaDirezione == 1:  # Destra
-                    if cellaDestra and cellaDestra in listaCelleNonVisitate:
-                        listaCelleNonVisitate.remove(cellaDestra)
-                    if cellaDestra:
-                        memoriaCelle.push(Cella(cellaDestra))
-                        cellaCorrente = Cella(cellaDestra)
-                
-                elif prossimaDirezione == 2:  # Sinistra
-                    if cellaSinistra and cellaSinistra in listaCelleNonVisitate:
-                        listaCelleNonVisitate.remove(cellaSinistra)
-                    if cellaSinistra:
-                        memoriaCelle.push(Cella(cellaSinistra))
-                        cellaCorrente = Cella(cellaSinistra)
-                
-                elif prossimaDirezione == 3:  # Dietro
-                    if cellaDietro and cellaDietro in listaCelleNonVisitate:
-                        listaCelleNonVisitate.remove(cellaDietro)
-                    if cellaDietro:
-                        memoriaCelle.push(Cella(cellaDietro))
-                        cellaCorrente = Cella(cellaDietro)
-                
-                print(f"[OK] Movimento completato. Nuova posizione: {cellaCorrente}")
+            # Attendi conferma movimento da Arduino
+            esito_movimento = riceviConfermaMovimento()
             
-            elif esito == 0:  # Cella nera rilevata
-                print("[AVVISO] Cella nera rilevata! Aggiorno mappa...")
+            if esito_movimento == MOVIMENTO_RIUSCITO:
+                # Movimento riuscito: aggiorna posizione
+                print("\n[STATO] Aggiornamento posizione...")
                 
-                # Marca come non percorribile in base alla direzione tentata
-                cella_bloccata = None
+                if not eseguiMovimento(direzione_scelta):
+                    print("[ERRORE] Impossibile aggiornare posizione!")
+                    break
                 
-                if prossimaDirezione == 0:
-                    cella_bloccata = cellaDritto
-                elif prossimaDirezione == 1:
-                    cella_bloccata = cellaDestra
-                elif prossimaDirezione == 2:
-                    cella_bloccata = cellaSinistra
-                elif prossimaDirezione == 3:
-                    cella_bloccata = cellaDietro
-                
-                if cella_bloccata and cella_bloccata not in listaCelleNonPercorribili:
-                    listaCelleNonPercorribili.append(Cella(cella_bloccata))
-                    if cella_bloccata in listaCelleNonVisitate:
-                        listaCelleNonVisitate.remove(cella_bloccata)
-                    print(f"[OK] Cella {cella_bloccata} marcata come nera")
+                # Nuova scansione dopo movimento riuscito
+                guardaIntorno()
             
-            # Nuova scansione dopo movimento
-            guardaIntorno()
+            elif esito_movimento == MOVIMENTO_FALLITO:
+                # Movimento fallito: cella nera rilevata
+                print("\n[AVVISO] ✗ MOVIMENTO FALLITO - Cella nera o ostacolo rilevato")
+                
+                # Marca la cella come non percorribile
+                marcaCellaComeBloccata(direzione_scelta)
+                
+                # Ricalcola nuova direzione escludendo celle nere
+                print("\n[INFO] Ricalcolo nuova direzione...")
+                
+                nuova_direzione = memoriaCelle.scegliDirezione(
+                    cellaDritto, 
+                    cellaDestra, 
+                    cellaSinistra,
+                    listaCelleNonPercorribili
+                )
+                
+                print(f"[DECISIONE] Nuova direzione: {direzioni_nomi[nuova_direzione]} (codice {nuova_direzione})")
+                
+                # Invia nuova direzione ad Arduino
+                if not inviaDirezioneAdArduino(nuova_direzione):
+                    print("[ERRORE] Impossibile inviare nuova direzione ad Arduino!")
+                    break
+                
+                # Ricomincia ciclo (attendi nuova conferma)
+                continue
             
-            time.sleep(0.5)  # Pausa tra iterazioni
+            else:
+                # Errore di comunicazione
+                print("[ERRORE CRITICO] Comunicazione con Arduino interrotta!")
+                break
+            
+            time.sleep(0.3)  # Piccola pausa tra iterazioni
         
+        # Fine esplorazione: invia codice terminazione
         print("\n" + "="*60)
         print("[COMPLETATO] Tutte le celle visitabili sono state esplorate!")
+        print("[INFO] Invio codice terminazione (0) ad Arduino...")
         print("="*60)
-    
+        
+        inviaDirezioneAdArduino(DIR_TERMINA)  # Invia 0
+        
     except KeyboardInterrupt:
         print("\n[INFO] Interruzione da utente (Ctrl+C)")
+        print("[INFO] Invio codice terminazione (0) ad Arduino...")
+        inviaDirezioneAdArduino(DIR_TERMINA)
     
     except Exception as e:
         print(f"\n[ERRORE] Eccezione non gestita: {e}")
         import traceback
         traceback.print_exc()
+        print("[INFO] Invio codice terminazione (0) ad Arduino...")
+        inviaDirezioneAdArduino(DIR_TERMINA)
     
     finally:
         # Cleanup
