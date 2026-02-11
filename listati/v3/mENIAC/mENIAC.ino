@@ -1,9 +1,14 @@
 #include <Wire.h>
 #include <VL53L0X.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
 
 // Pin pulsante START
 #define START_BUTTON_PIN 2
 #define LED_PIN 13
+
+// Pin servo medikit
+#define SERVO_MEDIKIT_PIN 9
 
 // Configurazione sensori VL53L0X (8 sensori, 2 per angolo)
 #define NUM_VL53L0X 8
@@ -26,14 +31,19 @@
 
 // Calibrazione
 #define CALIBRATION_SAMPLES 10
-#define WALL_PRESENT_THRESHOLD 200  // mm - se distanza < 200mm = muro presente
+#define WALL_PRESENT_THRESHOLD 200
+
+// Costanti servo medikit
+#define SERVO_HOME 0
+#define SERVO_ONE_MEDIKIT 150
+#define SERVO_TWO_MEDIKIT 250
 
 // Stati del sistema
 enum SystemState {
   STATE_IDLE,
   STATE_COUNTDOWN,
   STATE_CALIBRATION,
-  STATE_WALL_CHECK,     // NUOVO STATO - controlla muro una sola volta
+  STATE_WALL_CHECK,
   STATE_RUNNING,
   STATE_STOPPED
 };
@@ -42,7 +52,13 @@ SystemState currentState = STATE_IDLE;
 unsigned long countdownStart = 0;
 unsigned long calibrationStart = 0;
 bool systemRunning = false;
-bool wallChecked = false;  // Flag per controllare una sola volta
+bool wallChecked = false;
+
+// Display LCD I2C (indirizzo tipico 0x27, dimensioni 20x4)
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+// Servo medikit
+Servo servoMedikit;
 
 // Dati calibrazione
 struct CalibrationData {
@@ -85,8 +101,31 @@ void setup() {
   pinMode(US_RIGHT_TRIG, OUTPUT);
   pinMode(US_RIGHT_ECHO, INPUT);
   
+  // Inizializza display LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("  ROBOCUP  RESCUE  ");
+  lcd.setCursor(0, 1);
+  lcd.print("       MAZE        ");
+  lcd.setCursor(0, 3);
+  lcd.print("   Inizializzando  ");
+  
+  // Inizializza servo
+  servoMedikit.attach(SERVO_MEDIKIT_PIN);
+  servoMedikit.write(SERVO_HOME);
+  
   Serial.println("Inizializzazione sensori...");
   initVL53L0X();
+  
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("    SYSTEM READY    ");
+  lcd.setCursor(0, 2);
+  lcd.print("  Premi START per  ");
+  lcd.setCursor(0, 3);
+  lcd.print("     iniziare       ");
   
   Serial.println("\n╔════════════════════════════════╗");
   Serial.println("║  ROBOCUP RESCUE MAZE - READY   ║");
@@ -108,17 +147,181 @@ void loop() {
     currentState = STATE_RUNNING;
     systemRunning = true;
     
+    lcd.clear();
+    lcd.setCursor(0, 1);
+    lcd.print("   SYSTEM ACTIVE   ");
+    lcd.setCursor(0, 2);
+    lcd.print("  Waiting command  ");
+    
     Serial.println("\n╔════════════════════════════════╗");
     Serial.println("║      SISTEMA ATTIVO!           ║");
+    Serial.println("║   In ascolto comandi...        ║");
     Serial.println("╚════════════════════════════════╝\n");
   }
   
-  // Qui puoi aggiungere altre funzionalità (navigazione, ecc.)
+  // In RUNNING, ascolta comandi seriali
   if (currentState == STATE_RUNNING) {
-    // Il robot ora può fare altre cose...
+    if (Serial.available() > 0) {
+      int command = Serial.parseInt();
+      
+      // Consuma eventuali caratteri residui
+      while (Serial.available() > 0) {
+        Serial.read();
+      }
+      
+      // Processa comando se valido (0-6)
+      if (command >= 0 && command <= 6) {
+        processCommand(command);
+      }
+    }
   }
   
-  delay(100);
+  delay(50);
+}
+
+void processCommand(int cmd) {
+  Serial.print(">> Comando ricevuto: ");
+  Serial.println(cmd);
+  
+  lcd.clear();
+  
+  switch (cmd) {
+    case 0:
+      // Non fa nulla per ora
+      Serial.println("Comando 0 - Nessuna azione");
+      lcd.setCursor(0, 1);
+      lcd.print("   Comando 0: OK   ");
+      break;
+      
+    case 1:
+      // ROSSO
+      Serial.println("Vittima: ROSSO");
+      lcd.setCursor(0, 1);
+      lcd.print("      VITTIMA      ");
+      lcd.setCursor(0, 2);
+      lcd.print("       ROSSO       ");
+      break;
+      
+    case 2:
+      // GIALLO
+      Serial.println("Vittima: GIALLO");
+      lcd.setCursor(0, 1);
+      lcd.print("      VITTIMA      ");
+      lcd.setCursor(0, 2);
+      lcd.print("      GIALLO       ");
+      break;
+      
+    case 3:
+      // VERDE
+      Serial.println("Vittima: VERDE");
+      lcd.setCursor(0, 1);
+      lcd.print("      VITTIMA      ");
+      lcd.setCursor(0, 2);
+      lcd.print("       VERDE       ");
+      break;
+      
+    case 4:
+      // HARMED - 2 medikit
+      Serial.println("Vittima: HARMED - Rilascio 2 medikit");
+      
+      lcd.setCursor(0, 1);
+      lcd.print("      VITTIMA      ");
+      lcd.setCursor(0, 2);
+      lcd.print("      HARMED       ");
+      lcd.setCursor(0, 3);
+      lcd.print("  Rilascio 2 kit   ");
+      
+      // Gira 180 gradi
+      rotate180();
+      
+      // Rilascia 2 medikit
+      releaseMedikit(SERVO_TWO_MEDIKIT);
+      
+      // Torna alla posizione originale
+      rotate180();
+      
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.print("      HARMED       ");
+      lcd.setCursor(0, 2);
+      lcd.print("   Medikit OK!     ");
+      
+      Serial.println("Medikit rilasciati - Ritorno alla posizione");
+      break;
+      
+    case 5:
+      // STABLE - 1 medikit
+      Serial.println("Vittima: STABLE - Rilascio 1 medikit");
+      
+      lcd.setCursor(0, 1);
+      lcd.print("      VITTIMA      ");
+      lcd.setCursor(0, 2);
+      lcd.print("      STABLE       ");
+      lcd.setCursor(0, 3);
+      lcd.print("  Rilascio 1 kit   ");
+      
+      // Gira 180 gradi
+      rotate180();
+      
+      // Rilascia 1 medikit
+      releaseMedikit(SERVO_ONE_MEDIKIT);
+      
+      // Torna alla posizione originale
+      rotate180();
+      
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.print("      STABLE       ");
+      lcd.setCursor(0, 2);
+      lcd.print("   Medikit OK!     ");
+      
+      Serial.println("Medikit rilasciato - Ritorno alla posizione");
+      break;
+      
+    case 6:
+      // UNHARMED - nessun medikit
+      Serial.println("Vittima: UNHARMED");
+      lcd.setCursor(0, 1);
+      lcd.print("      VITTIMA      ");
+      lcd.setCursor(0, 2);
+      lcd.print("     UNHARMED      ");
+      break;
+  }
+  
+  delay(3000); // Mostra messaggio per 3 secondi
+  
+  // Torna in attesa
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("   SYSTEM ACTIVE   ");
+  lcd.setCursor(0, 2);
+  lcd.print("  Waiting command  ");
+}
+
+void rotate180() {
+  Serial.println(">> Rotazione 180 gradi...");
+  
+  // TODO: Implementa rotazione motori
+  // Per ora simuliamo con delay
+  delay(1000);
+  
+  Serial.println(">> Rotazione completata");
+}
+
+void releaseMedikit(int angle) {
+  Serial.print(">> Servo medikit -> ");
+  Serial.print(angle);
+  Serial.println(" gradi");
+  
+  // Muovi servo alla posizione di rilascio
+  servoMedikit.write(angle);
+  delay(1500); // Attendi movimento servo e caduta medikit
+  
+  // Ritorna alla posizione home
+  servoMedikit.write(SERVO_HOME);
+  delay(500);
+  
+  Serial.println(">> Medikit rilasciato");
 }
 
 void handleStateMachine() {
@@ -138,11 +341,8 @@ void handleStateMachine() {
         break;
         
       case STATE_CALIBRATION:
-        // Durante calibrazione non si può interrompere
-        break;
-        
       case STATE_WALL_CHECK:
-        // Durante controllo muro non si può interrompere
+        // Non interrompibile
         break;
         
       case STATE_RUNNING:
@@ -157,7 +357,6 @@ void handleStateMachine() {
   
   lastButtonState = buttonState;
   
-  // Gestione countdown
   if (currentState == STATE_COUNTDOWN) {
     unsigned long elapsed = millis() - countdownStart;
     int remaining = 5 - (elapsed / 1000);
@@ -170,6 +369,13 @@ void handleStateMachine() {
         Serial.print(">>> Avvio tra ");
         Serial.print(remaining);
         Serial.println(" secondi...");
+        
+        lcd.clear();
+        lcd.setCursor(0, 1);
+        lcd.print("   Avvio tra: ");
+        lcd.print(remaining);
+        lcd.print("s   ");
+        
         lastPrinted = remaining;
       }
     } else {
@@ -177,7 +383,6 @@ void handleStateMachine() {
     }
   }
   
-  // Gestione calibrazione
   if (currentState == STATE_CALIBRATION) {
     performCalibration();
   }
@@ -189,7 +394,6 @@ void startCountdown() {
   
   Serial.println("\n╔════════════════════════════════╗");
   Serial.println("║     COUNTDOWN AVVIATO!         ║");
-  Serial.println("║  Premi di nuovo per annullare  ║");
   Serial.println("╚════════════════════════════════╝\n");
 }
 
@@ -198,7 +402,14 @@ void cancelCountdown() {
   digitalWrite(LED_PIN, LOW);
   
   Serial.println("\n⚠ COUNTDOWN ANNULLATO\n");
-  Serial.println(">> Premi START per riavviare <<\n");
+  
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("    ANNULLATO!     ");
+  delay(1000);
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("    SYSTEM READY    ");
   
   blinkReady();
 }
@@ -208,7 +419,6 @@ void startCalibration() {
   calibrationStart = millis();
   calibration.completed = false;
   
-  // Reset valori calibrazione
   calibration.frontMin = 65535;
   calibration.frontMax = 0;
   calibration.frontAvg = 0;
@@ -219,9 +429,14 @@ void startCalibration() {
   
   digitalWrite(LED_PIN, HIGH);
   
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("   CALIBRAZIONE    ");
+  lcd.setCursor(0, 2);
+  lcd.print("    IN CORSO...    ");
+  
   Serial.println("\n╔════════════════════════════════╗");
   Serial.println("║   CALIBRAZIONE IN CORSO...     ║");
-  Serial.println("║    Attendere prego...          ║");
   Serial.println("╚════════════════════════════════╝\n");
 }
 
@@ -230,12 +445,10 @@ void performCalibration() {
   static unsigned long totalFront = 0;
   
   if (sampleCount < CALIBRATION_SAMPLES) {
-    // Leggi campioni
     uint16_t frontDist = readUltrasonic(US_FRONT_TRIG, US_FRONT_ECHO);
     uint16_t leftDist = readUltrasonic(US_LEFT_TRIG, US_LEFT_ECHO);
     uint16_t rightDist = readUltrasonic(US_RIGHT_TRIG, US_RIGHT_ECHO);
     
-    // Aggiorna min/max/avg
     if (frontDist < calibration.frontMin) calibration.frontMin = frontDist;
     if (frontDist > calibration.frontMax) calibration.frontMax = frontDist;
     totalFront += frontDist;
@@ -248,8 +461,14 @@ void performCalibration() {
     
     sampleCount++;
     
-    // LED lampeggia durante calibrazione
     digitalWrite(LED_PIN, (millis() / 100) % 2);
+    
+    lcd.setCursor(0, 3);
+    lcd.print("  Campione ");
+    lcd.print(sampleCount);
+    lcd.print("/");
+    lcd.print(CALIBRATION_SAMPLES);
+    lcd.print("  ");
     
     Serial.print("Campione ");
     Serial.print(sampleCount);
@@ -262,34 +481,25 @@ void performCalibration() {
     delay(200);
     
   } else {
-    // Calibrazione completata
     calibration.frontAvg = totalFront / CALIBRATION_SAMPLES;
     calibration.completed = true;
+    
+    lcd.clear();
+    lcd.setCursor(0, 1);
+    lcd.print("  CALIBRAZIONE OK  ");
     
     Serial.println("\n╔════════════════════════════════╗");
     Serial.println("║   CALIBRAZIONE COMPLETATA!     ║");
     Serial.println("╚════════════════════════════════╝\n");
     
-    Serial.println("--- Risultati Calibrazione ---");
-    Serial.print("Frontale - Min: "); Serial.print(calibration.frontMin);
-    Serial.print(" mm, Max: "); Serial.print(calibration.frontMax);
-    Serial.print(" mm, Avg: "); Serial.print(calibration.frontAvg);
-    Serial.println(" mm");
+    Serial.println("--- Risultati ---");
+    Serial.print("Front Avg: "); Serial.print(calibration.frontAvg); Serial.println(" mm");
     
-    Serial.print("Sinistro - Min: "); Serial.print(calibration.leftMin);
-    Serial.print(" mm, Max: "); Serial.println(calibration.leftMax);
+    delay(1000);
     
-    Serial.print("Destro - Min: "); Serial.print(calibration.rightMin);
-    Serial.print(" mm, Max: "); Serial.println(calibration.rightMax);
-    Serial.println();
-    
-    delay(500);
-    
-    // Reset contatori per prossima calibrazione
     sampleCount = 0;
     totalFront = 0;
     
-    // Passa al controllo muro
     currentState = STATE_WALL_CHECK;
     wallChecked = false;
   }
@@ -298,7 +508,10 @@ void performCalibration() {
 void checkFrontWall() {
   Serial.println("--- Controllo Muro Frontale ---");
   
-  // Fai 3 letture e prendi la mediana per maggiore affidabilità
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print(" Controllo muro... ");
+  
   uint16_t readings[3];
   readings[0] = readUltrasonic(US_FRONT_TRIG, US_FRONT_ECHO);
   delay(50);
@@ -306,25 +519,26 @@ void checkFrontWall() {
   delay(50);
   readings[2] = readUltrasonic(US_FRONT_TRIG, US_FRONT_ECHO);
   
-  // Ordina per trovare mediana
   if (readings[0] > readings[1]) { uint16_t temp = readings[0]; readings[0] = readings[1]; readings[1] = temp; }
   if (readings[1] > readings[2]) { uint16_t temp = readings[1]; readings[1] = readings[2]; readings[2] = temp; }
   if (readings[0] > readings[1]) { uint16_t temp = readings[0]; readings[0] = readings[1]; readings[1] = temp; }
   
-  uint16_t frontDistance = readings[1]; // Mediana
-  
-  // Determina presenza muro (0 = NO, 1 = SI)
+  uint16_t frontDistance = readings[1];
   int wallPresent = (frontDistance < WALL_PRESENT_THRESHOLD && frontDistance > 20) ? 1 : 0;
   
-  // OUTPUT SERIALE - SOLO 0 o 1
   Serial.println(wallPresent);
-  
-  // Info dettagliate (opzionali)
-  Serial.print("Distanza rilevata: ");
+  Serial.print("Distanza: ");
   Serial.print(frontDistance);
   Serial.print(" mm -> ");
   Serial.println(wallPresent ? "MURO PRESENTE" : "MURO ASSENTE");
-  Serial.println();
+  
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("  Muro frontale:   ");
+  lcd.setCursor(0, 2);
+  lcd.print(wallPresent ? "     PRESENTE      " : "      ASSENTE      ");
+  
+  delay(2000);
 }
 
 void stopSystem() {
@@ -332,12 +546,14 @@ void stopSystem() {
   systemRunning = false;
   digitalWrite(LED_PIN, LOW);
   
+  lcd.clear();
+  lcd.setCursor(0, 1);
+  lcd.print("   SYSTEM STOPPED  ");
+  
   Serial.println("\n╔════════════════════════════════╗");
   Serial.println("║      SISTEMA FERMATO!          ║");
   Serial.println("╚════════════════════════════════╝\n");
-  Serial.println(">> Premi START per riavviare <<\n");
   
-  // Reset flag per permettere nuovo controllo
   wallChecked = false;
 }
 
@@ -364,6 +580,14 @@ void initVL53L0X() {
     if (!sensors[i].init()) {
       Serial.print("❌ Errore sensore ");
       Serial.println(i);
+      
+      lcd.clear();
+      lcd.setCursor(0, 1);
+      lcd.print("  ERRORE SENSORE  ");
+      lcd.setCursor(0, 2);
+      lcd.print("       #");
+      lcd.print(i);
+      
       while(1) {
         digitalWrite(LED_PIN, (millis() / 200) % 2);
       }
