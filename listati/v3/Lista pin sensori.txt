@@ -1,0 +1,130 @@
+Ecco una possibile mappatura completa, coerente con i codici che abbiamo scritto finora. Puoi ancora cambiarla, ma così hai una base chiara.
+
+## Pin di alimentazione e bus
+
+- 5V:
+  - Modulo LCD I2C
+  - Tutti i VL53L0X (VCC)
+  - TCS3200 (VCC)
+  - HC-SR04P (VCC)
+  - MPU6050 (VCC)
+  - Servo camera SG90
+  - Servo medikit SG90
+- GND:
+  - Tutti i sensori e moduli sopra
+- I2C bus (Arduino Mega):
+  - SDA: pin 20
+  - SCL: pin 21  
+  Collegati in parallelo a:
+  - LCD 20x4 I2C
+  - 8× VL53L0X (linee SDA/SCL comuni, XSHUT separati)
+  - MPU6050
+
+***
+
+## Pulsanti e LED
+
+- Pulsante START: pin 2 (INPUT_PULLUP)
+- LED di stato: pin 13 (OUTPUT)
+
+***
+
+## Sensori ultrasuoni HC-SR04P
+
+- Frontale:
+  - TRIG: pin 30
+  - ECHO: pin 31
+- Destra:
+  - TRIG: pin 32
+  - ECHO: pin 33
+- Sinistra:
+  - TRIG: pin 34
+  - ECHO: pin 35
+
+***
+
+## Sensori IR di distanza VL53L0X (8 pezzi)
+
+Tutti su I2C (SDA=20, SCL=21), con XSHUT separati per dare indirizzi diversi:
+
+- XSHUT sensore 0: pin 22
+- XSHUT sensore 1: pin 23
+- XSHUT sensore 2: pin 24
+- XSHUT sensore 3: pin 25
+- XSHUT sensore 4: pin 26
+- XSHUT sensore 5: pin 27
+- XSHUT sensore 6: pin 28
+- XSHUT sensore 7: pin 29
+
+(La posizione fisica dei sensori – front-left, front-right, ecc. – la decidi tu, ma nel codice li indicizzi da 0 a 7.)
+
+***
+
+## Sensore colore TCS3200
+
+- S0: pin 36
+- S1: pin 37
+- S2: pin 38
+- S3: pin 39
+- OUT: pin 40 (INPUT)
+- VCC: 5V
+- GND: GND
+
+***
+
+## Servo motori
+
+- Servo camera (SG90, rotazione 0–180°):
+  - Segnale: pin 9 (PWM)
+  - +5V, GND: alimentazione servo
+- Servo medikit (SG90):
+  - Segnale: pin 10 (PWM)
+  - +5V, GND: alimentazione servo
+
+***
+
+## Motori DC e driver L298N
+
+Lato sinistro (due motori in parallelo):
+
+- ENA (PWM velocità): pin 3 (OUTPUT, PWM)
+- IN1: pin 24 (direzione)
+- IN2: pin 25 (direzione)
+
+Lato destro (due motori in parallelo):
+
+- ENB (PWM velocità): pin 4 (OUTPUT, PWM)
+- IN3: pin 26 (direzione)
+- IN4: pin 27 (direzione)
+
+(Nel codice ho usato 24–27 per i motori e 22–29 per XSHUT; se vuoi tenerli separati, puoi spostare gli XSHUT su 30+ e lasciare 22–27 liberi ai motori.)
+
+***
+
+## Display LCD 20x4 I2C
+
+- SDA: pin 20
+- SCL: pin 21
+- VCC: 5V
+- GND: GND  
+Indirizzo I2C tipico: 0x27 (oppure 0x3F, da verificare con scanner I2C).
+
+***
+
+## Giroscopio / IMU (es. MPU6050)
+
+- SDA: pin 20
+- SCL: pin 21
+- VCC: 5V
+- GND: GND  
+Indirizzo I2C tipico: 0x68.
+
+***
+
+## Comunicazione con Raspberry Pi
+
+- Via USB:
+  - Arduino Mega ↔ Raspberry Pi: porta `/dev/ttyACM0` sul Raspberry  
+  (niente pin dedicati: usa la porta USB nativa dell’Arduino)
+
+Se vuoi, nel passo successivo posso riordinare i pin per “lato del robot” (fronte, destra, sinistra, retro) così ti torna meglio anche per il cablaggio fisico.
