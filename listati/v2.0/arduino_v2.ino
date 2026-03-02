@@ -12,7 +12,7 @@
 
 // Sensori VL53L0X (8 sensori, 2 per lato)
 #define NUM_VL53L0X 8
-#define XSHUT_PIN_START 22  // Pin 22-29 per XSHUT
+#define XSHUT_PIN_START 42  // Pin 42-49 per XSHUT
 
 // Sensori ultrasuoni
 #define US_FRONT_TRIG 30

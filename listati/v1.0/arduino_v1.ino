@@ -12,7 +12,7 @@
 
 // Sensori VL53L0X (8 sensori, 2 per lato)
 #define NUM_VL53L0X 8
-#define XSHUT_PIN_START 22  // Pin 22-29 per XSHUT
+#define XSHUT_PIN_START 42  // ⬅️ CAMBIATO: Pin 42-49 per XSHUT
 
 // Sensori ultrasuoni
 #define US_FRONT_TRIG 30
@@ -35,53 +35,53 @@
 
 // Motor Driver L298N - LATO SINISTRO
 #define MOTOR_LEFT_ENA 3   // PWM
-#define MOTOR_LEFT_IN1 44
-#define MOTOR_LEFT_IN2 45
+#define MOTOR_LEFT_IN1 24  // ⬅️ ORA LIBERI (non conflitto)
+#define MOTOR_LEFT_IN2 25
 
 // Motor Driver L298N - LATO DESTRO
 #define MOTOR_RIGHT_ENB 4  // PWM
-#define MOTOR_RIGHT_IN3 46
-#define MOTOR_RIGHT_IN4 47
+#define MOTOR_RIGHT_IN3 26
+#define MOTOR_RIGHT_IN4 27
 
 // =================== COSTANTI ===================
 
 // Labirinto
-#define TILE_SIZE 300              // mm
-#define ROBOT_SIZE 200             // mm
-#define WALL_DISTANCE_THRESHOLD 70 // mm
-#define CENTER_TOLERANCE 10        // mm
-#define ANGLE_TOLERANCE 3          // gradi
+#define TILE_SIZE 300
+#define ROBOT_SIZE 200
+#define WALL_DISTANCE_THRESHOLD 70
+#define CENTER_TOLERANCE 10
+#define ANGLE_TOLERANCE 3
 
 // Calibrazione
 #define CALIBRATION_SAMPLES 5
-#define VL53L0X_WALL_THRESHOLD 70  // mm
+#define VL53L0X_WALL_THRESHOLD 70
 
 // Movimento
-#define STEP_DISTANCE 30           // mm per step
-#define STEPS_PER_TILE 10          // 300mm / 30mm
-#define MOTOR_SPEED_NORMAL 150     // PWM 0-255
-#define MOTOR_SPEED_SLOW 100       // Per calibrazione
-#define ROTATION_DELAY_90 500      // ms per ruotare 90°
+#define STEP_DISTANCE 30
+#define STEPS_PER_TILE 10
+#define MOTOR_SPEED_NORMAL 150
+#define MOTOR_SPEED_SLOW 100
+#define ROTATION_DELAY_90 500
 
 // Sensore colore
-#define BLACK_THRESHOLD 50         // Soglia per rilevare nero
-#define RED_THRESHOLD 80           // Soglia per rilevare rosso
+#define BLACK_THRESHOLD 50
+#define RED_THRESHOLD 80
 
 // Giroscopio
-#define TILT_THRESHOLD 17          // gradi - pendenza massima
+#define TILT_THRESHOLD 17
 
 // Comunicazione seriale
 #define SERIAL_BAUD 115200
-#define SERIAL_TIMEOUT 5000        // ms
+#define SERIAL_TIMEOUT 5000
 
-// Codici direzione (da Raspberry)
+// Codici direzione
 #define DIR_TERMINA 0
 #define DIR_DRITTO 1
 #define DIR_DESTRA 2
 #define DIR_SINISTRA 3
 #define DIR_DIETRO 4
 
-// Codici rilevazione (per Raspberry)
+// Codici rilevazione
 #define CODE_NESSUNA 0
 #define CODE_ROSSO 1
 #define CODE_GIALLO 2
@@ -100,7 +100,7 @@
 VL53L0X sensors[NUM_VL53L0X];
 uint8_t sensorAddresses[NUM_VL53L0X] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37};
 
-LiquidCrystal_I2C lcd(0x27, 20, 4);  // Prova 0x27, se non funziona usa 0x3F
+LiquidCrystal_I2C lcd(0x27, 20, 4);
 Servo servoCamera;
 Servo servoMedikit;
 MPU6050 mpu;
@@ -108,7 +108,7 @@ MPU6050 mpu;
 // =================== VARIABILI GLOBALI ===================
 
 volatile bool systemRunning = false;
-int currentDirection = 0;  // 0=iniziale, poi ruota in base ai movimenti
+int currentDirection = 0;
 
 enum CameraPosition {
   CAM_FRONT,
@@ -121,19 +121,15 @@ CameraPosition currentCameraPos = CAM_FRONT;
 // =================== STRUTTURE DATI ===================
 
 struct SensorReadings {
-  // VL53L0X: 2 sensori per lato
   uint16_t frontLeft1, frontLeft2;
   uint16_t frontRight1, frontRight2;
   uint16_t backRight1, backRight2;
   uint16_t backLeft1, backLeft2;
   
-  // Ultrasuoni
   uint16_t usFront, usRight, usLeft;
   
-  // Giroscopio
   float pitch, roll;
   
-  // Sensore colore
   int colorR, colorG, colorB;
 };
 
@@ -142,19 +138,17 @@ SensorReadings sensorData;
 // =================== SETUP ===================
 
 void setup() {
-  // Comunicazione seriale con Raspberry Pi
   Serial.begin(SERIAL_BAUD);
   Serial.setTimeout(SERIAL_TIMEOUT);
   
   Wire.begin();
   Wire.setClock(400000);
   
-  // Pin pulsante e LED
   pinMode(START_BUTTON_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
   
-  // Pin ultrasuoni
+  // Ultrasuoni
   pinMode(US_FRONT_TRIG, OUTPUT);
   pinMode(US_FRONT_ECHO, INPUT);
   pinMode(US_RIGHT_TRIG, OUTPUT);
@@ -162,25 +156,22 @@ void setup() {
   pinMode(US_LEFT_TRIG, OUTPUT);
   pinMode(US_LEFT_ECHO, INPUT);
   
-  // Pin sensore colore TCS3200
+  // Sensore colore
   pinMode(TCS_S0, OUTPUT);
   pinMode(TCS_S1, OUTPUT);
   pinMode(TCS_S2, OUTPUT);
   pinMode(TCS_S3, OUTPUT);
   pinMode(TCS_OUT, INPUT);
-  
-  // Frequenza scaling TCS3200 (20%)
   digitalWrite(TCS_S0, HIGH);
   digitalWrite(TCS_S1, LOW);
   
-  // Pin motori
+  // Motori
   pinMode(MOTOR_LEFT_ENA, OUTPUT);
   pinMode(MOTOR_LEFT_IN1, OUTPUT);
   pinMode(MOTOR_LEFT_IN2, OUTPUT);
   pinMode(MOTOR_RIGHT_ENB, OUTPUT);
   pinMode(MOTOR_RIGHT_IN3, OUTPUT);
   pinMode(MOTOR_RIGHT_IN4, OUTPUT);
-  
   stopMotors();
   
   // LCD
@@ -193,7 +184,7 @@ void setup() {
   lcd.print("Inizializzazione...");
   delay(1000);
   
-  // Servo motori
+  // Servo
   servoCamera.attach(SERVO_CAMERA_PIN);
   servoMedikit.attach(SERVO_MEDIKIT_PIN);
   servoCamera.write(CAMERA_CENTER);
@@ -229,12 +220,11 @@ void setup() {
 // =================== LOOP PRINCIPALE ===================
 
 void loop() {
-  // Gestione pulsante START
   static bool lastButtonState = HIGH;
   bool buttonState = digitalRead(START_BUTTON_PIN);
   
   if (lastButtonState == HIGH && buttonState == LOW) {
-    delay(50);  // Debounce
+    delay(50);
     
     if (!systemRunning) {
       startSystem();
@@ -245,7 +235,6 @@ void loop() {
   
   lastButtonState = buttonState;
   
-  // Ciclo principale se attivo
   if (systemRunning) {
     mainCycle();
   }
@@ -291,11 +280,9 @@ void mainCycle() {
       Serial.println("[INFO] Scansione SINISTRA");
       scanDirection("LEFT");
       
-      // Riposiziona camera al centro
       servoCamera.write(CAMERA_CENTER);
       delay(500);
       
-      // Segnala fine scansione a Raspberry
       Serial.println("1");
       
       currentState = STATE_WAIT_DIRECTION;
@@ -333,10 +320,8 @@ void mainCycle() {
 // =================== SCANSIONE DIREZIONI ===================
 
 void scanDirection(String dirName) {
-  // Autocalibrazione prima di ogni scansione
   autocalibrazione();
   
-  // Posiziona camera
   if (dirName == "FRONT") {
     servoCamera.write(CAMERA_CENTER);
     currentCameraPos = CAM_FRONT;
@@ -348,9 +333,8 @@ void scanDirection(String dirName) {
     currentCameraPos = CAM_LEFT;
   }
   
-  delay(500);  // Attendi posizionamento camera
+  delay(500);
   
-  // Rileva muro con ultrasuono appropriato
   uint16_t distance = 0;
   
   if (dirName == "FRONT") {
@@ -367,16 +351,12 @@ void scanDirection(String dirName) {
   Serial.print(distance);
   Serial.println(" mm");
   
-  // Determina presenza muro (1=presente, 0=assente)
   int wallPresent = (distance < WALL_DISTANCE_THRESHOLD && distance > 20) ? 1 : 0;
   
-  // Invia a Raspberry
   Serial.println(wallPresent);
   
-  // Attendi risposta da Raspberry (codice rilevazione)
   int code = waitForDetectionCode();
   
-  // Gestisci codice rilevazione
   handleDetectionCode(code);
 }
 
@@ -389,12 +369,11 @@ uint16_t readUltrasonic(uint8_t trigPin, uint8_t echoPin) {
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
   
-  long duration = pulseIn(echoPin, HIGH, 30000);  // Timeout 30ms
+  long duration = pulseIn(echoPin, HIGH, 30000);
   if (duration == 0) {
-    return 8190;  // Fuori range
+    return 8190;
   }
   
-  // Calcola distanza in mm (velocità suono ~343 m/s)
   return (duration * 0.343) / 2;
 }
 
@@ -410,17 +389,14 @@ void readAllVL53L0X() {
 }
 
 void readColorSensor() {
-  // Leggi componente R
   digitalWrite(TCS_S2, LOW);
   digitalWrite(TCS_S3, LOW);
   sensorData.colorR = pulseIn(TCS_OUT, LOW);
   
-  // Leggi componente G
   digitalWrite(TCS_S2, HIGH);
   digitalWrite(TCS_S3, HIGH);
   sensorData.colorG = pulseIn(TCS_OUT, LOW);
   
-  // Leggi componente B
   digitalWrite(TCS_S2, LOW);
   digitalWrite(TCS_S3, HIGH);
   sensorData.colorB = pulseIn(TCS_OUT, LOW);
@@ -444,7 +420,6 @@ void readGyroscope() {
   
   mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
   
-  // Calcola angoli pitch e roll (semplificato)
   sensorData.pitch = atan2(ay, sqrt(ax*ax + az*az)) * 180.0 / PI;
   sensorData.roll = atan2(ax, sqrt(ay*ay + az*az)) * 180.0 / PI;
 }
@@ -478,11 +453,11 @@ void handleDetectionCode(int code) {
       break;
       
     case CODE_PHI:
-      deliverMedikit("Harmed", 2);  // 2 rotazioni 90°
+      deliverMedikit("Harmed", 2);
       break;
       
     case CODE_PSI:
-      deliverMedikit("Secured", 1);  // 1 rotazione 90°
+      deliverMedikit("Secured", 1);
       break;
       
     case CODE_OMEGA:
@@ -495,7 +470,6 @@ void handleDetectionCode(int code) {
       
     case CODE_NESSUNA:
     default:
-      // Nessuna azione
       break;
   }
 }
@@ -508,10 +482,8 @@ void deliverMedikit(String victimType, int rotations) {
   lcd.setCursor(0, 1);
   lcd.print(victimType);
   
-  // Ruota 180° (direzione opposta alla vittima)
   rotate180();
   
-  // Rilascia medikit con servo
   for (int i = 0; i < rotations; i++) {
     servoMedikit.write(90);
     delay(500);
@@ -519,10 +491,8 @@ void deliverMedikit(String victimType, int rotations) {
     delay(500);
   }
   
-  // Torna in posizione originale
   rotate180();
   
-  // Autocalibrazione
   autocalibrazione();
   
   lcd.clear();
@@ -543,14 +513,14 @@ void executeMovement(int direction) {
       
     case DIR_DESTRA:
       Serial.println("[INFO] Movimento: DESTRA + AVANTI");
-      rotate90(true);  // Clockwise
+      rotate90(true);
       moveForwardTile();
       currentDirection++;
       break;
       
     case DIR_SINISTRA:
       Serial.println("[INFO] Movimento: SINISTRA + AVANTI");
-      rotate90(false);  // Counterclockwise
+      rotate90(false);
       moveForwardTile();
       currentDirection--;
       break;
@@ -568,18 +538,16 @@ void moveForwardTile() {
   bool success = true;
   
   for (int step = 0; step < STEPS_PER_TILE; step++) {
-    // Controlla colore pavimento
     readColorSensor();
     
     if (isBlackTile()) {
       Serial.println("[ERROR] Cella NERA rilevata!");
       
-      // Torna indietro
       for (int back = 0; back < step; back++) {
         moveBackwardStep();
       }
       
-      Serial.println("0");  // Movimento fallito
+      Serial.println("0");
       success = false;
       return;
     }
@@ -587,17 +555,15 @@ void moveForwardTile() {
     if (isRedTile()) {
       Serial.println("[ERROR] Cella ROSSA rilevata!");
       
-      // Torna indietro
       for (int back = 0; back < step; back++) {
         moveBackwardStep();
       }
       
-      Serial.println("0");  // Movimento fallito
+      Serial.println("0");
       success = false;
       return;
     }
     
-    // Controlla inclinazione
     readGyroscope();
     
     if (abs(sensorData.pitch) > TILT_THRESHOLD || abs(sensorData.roll) > TILT_THRESHOLD) {
@@ -607,29 +573,27 @@ void moveForwardTile() {
       Serial.print(sensorData.roll);
       Serial.println("°");
       
-      // Torna indietro
       for (int back = 0; back < step; back++) {
         moveBackwardStep();
       }
       
-      Serial.println("0");  // Movimento fallito
+      Serial.println("0");
       success = false;
       return;
     }
     
-    // Avanza di uno step
     moveForwardStep();
   }
   
   if (success) {
     Serial.println("[INFO] Movimento completato con successo");
-    Serial.println("1");  // Movimento riuscito
+    Serial.println("1");
   }
 }
 
 void moveForwardStep() {
   setMotorSpeed(MOTOR_SPEED_NORMAL, MOTOR_SPEED_NORMAL);
-  delay(STEP_DISTANCE * 10);  // Tempo proporzionale alla distanza
+  delay(STEP_DISTANCE * 10);
   stopMotors();
   delay(50);
 }
@@ -668,7 +632,6 @@ void rotate180() {
 // =================== CONTROLLO MOTORI ===================
 
 void setMotorSpeed(int leftSpeed, int rightSpeed) {
-  // Motore SINISTRO
   if (leftSpeed > 0) {
     digitalWrite(MOTOR_LEFT_IN1, HIGH);
     digitalWrite(MOTOR_LEFT_IN2, LOW);
@@ -683,7 +646,6 @@ void setMotorSpeed(int leftSpeed, int rightSpeed) {
     analogWrite(MOTOR_LEFT_ENA, 0);
   }
   
-  // Motore DESTRO
   if (rightSpeed > 0) {
     digitalWrite(MOTOR_RIGHT_IN3, HIGH);
     digitalWrite(MOTOR_RIGHT_IN4, LOW);
@@ -708,8 +670,6 @@ void stopMotors() {
 void autocalibrazione() {
   readAllVL53L0X();
   
-  // Verifica allineamento laterale con VL53L0X
-  // Lato frontale: confronta sensori left e right
   int16_t diffFront = sensorData.frontLeft1 - sensorData.frontRight1;
   
   if (abs(diffFront) > CENTER_TOLERANCE) {
@@ -717,12 +677,10 @@ void autocalibrazione() {
     Serial.println(diffFront);
     
     if (diffFront > 0) {
-      // Frontale sinistra più lontana → ruota leggermente a destra
       setMotorSpeed(MOTOR_SPEED_SLOW, -MOTOR_SPEED_SLOW);
       delay(50);
       stopMotors();
     } else {
-      // Frontale destra più lontana → ruota leggermente a sinistra
       setMotorSpeed(-MOTOR_SPEED_SLOW, MOTOR_SPEED_SLOW);
       delay(50);
       stopMotors();
@@ -838,16 +796,14 @@ void blinkReady() {
 }
 
 void initVL53L0X() {
-  // Spegni tutti i sensori
+  // ⬅️ CAMBIATO: Usa pin 42-49 invece di 22-29
   for (int i = 0; i < NUM_VL53L0X; i++) {
     pinMode(XSHUT_PIN_START + i, OUTPUT);
     digitalWrite(XSHUT_PIN_START + i, LOW);
   }
   delay(10);
   
-  // Inizializza uno alla volta
   for (int i = 0; i < NUM_VL53L0X; i++) {
-    // Accendi sensore i
     digitalWrite(XSHUT_PIN_START + i, HIGH);
     delay(10);
     
@@ -863,16 +819,12 @@ void initVL53L0X() {
       lcd.print(i);
       delay(2000);
       
-      // Blocca se sensore critico
       while(1) {
         digitalWrite(LED_PIN, (millis() / 200) % 2);
       }
     }
     
-    // Assegna nuovo indirizzo I2C
     sensors[i].setAddress(sensorAddresses[i]);
-    
-    // Imposta timing budget (velocità/accuratezza)
     sensors[i].setMeasurementTimingBudget(20000);
     
     Serial.print("[INFO] VL53L0X #");

@@ -1,0 +1,141 @@
+🔧 Troubleshooting
+
+Problemi Comuni
+
+1. Arduino non trovato
+Sintomo:
+```
+[ERRORE] Impossibile connettersi ad Arduino: [Errno 2] No such file or directory: '/dev/ttyACM0'
+```
+Soluzioni:
+```bash
+# Verifica connessione USB
+lsusb | grep Arduino
+
+# Trova porta corretta
+ls /dev/ttyACM*
+ls /dev/ttyUSB*
+
+# Modifica porta in main_vX.py
+SERIAL_PORT = "/dev/ttyACM0"  # Cambia se necessario
+
+# Aggiungi permessi
+sudo chmod 666 /dev/ttyACM0
+```
+2. Camera non funziona
+Sintomo:
+```
+[ERRORE] Impossibile leggere dalla camera
+```
+Soluzioni:
+```bash
+# Testa camera
+vcgencmd get_camera
+
+# Lista dispositivi video
+ls /dev/video*
+
+# Prova diverso indice
+CAMERA_INDEX = 0  # Prova anche 1, 2...
+
+# Installa v4l-utils
+sudo apt install v4l-utils
+v4l2-ctl --list-devices
+```
+3. Sensori VL53L0X non inizializzati
+Sintomo:
+```
+[ERROR] VL53L0X #3 non trovato!
+ERR: VL53 #3
+```
+Soluzioni:
+Verifica cablaggio I2C (SDA/SCL)
+Verifica alimentazione sensori (5V)
+Controlla pin XSHUT collegati correttamente (42-49)
+Testa I2C bus:
+```bash
+sudo i2cdetect -y 1
+# Dovresti vedere dispositivi a 0x30-0x37
+```
+4. Heartbeat timeout (solo V2)
+Sintomo:
+```
+[ERRORE CRITICO] Arduino non risponde da 5.3s!
+```
+Soluzioni:
+Verifica connessione USB stabile
+Controlla alimentazione Arduino
+Ricarica sketch V2 su Arduino
+Aumenta WATCHDOG_TIMEOUT in Python:
+```python
+WATCHDOG_TIMEOUT = 10.0  # Da 5.0 a 10.0
+```
+5. OCR non riconosce lettere greche
+Sintomo:
+```
+[WARN] OCR fallito: [Errno 2] No such file or directory: 'tesseract'
+```
+Soluzioni:
+```bash
+# Installa Tesseract
+sudo apt install tesseract-ocr tesseract-ocr-ell -y
+
+# Verifica installazione
+tesseract --version
+
+# Testa lingua greca
+tesseract --list-langs | grep ell
+```
+6. Motori non rispondono
+Sintomo:
+Robot non si muove, nessun suono motori
+Soluzioni:
+Verifica alimentazione batteria (>10V)
+Controlla collegamenti L298N:
+ENA, ENB → Pin PWM (3, 4)
+IN1-IN4 → Pin digitali (24-27)
+Testa motori manualmente:
+```cpp
+// In setup()
+digitalWrite(MOTOR_LEFT_IN1, HIGH);
+digitalWrite(MOTOR_LEFT_IN2, LOW);
+analogWrite(MOTOR_LEFT_ENA, 150);
+delay(2000);
+```
+7. Robot deriva durante movimento
+Sintomo:
+Robot non va dritto, ruota involontariamente
+Soluzioni:
+Calibra velocità motori in `arduino_vX.ino`:
+```cpp
+#define MOTOR_SPEED_NORMAL 150  // Prova valori diversi
+#define MOTOR_SPEED_LEFT_TRIM 5 // Compensa differenza motori
+
+// In setMotorSpeed():
+analogWrite(MOTOR_LEFT_ENA, leftSpeed + MOTOR_SPEED_LEFT_TRIM);
+```
+Verifica encoder funzionanti
+Controlla ruote non slittano
+Debug Avanzato
+Modalità Verbose
+Aggiungi in `main_vX.py`:
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+```
+Log Seriale Completo
+Arduino:
+```cpp
+// In setup()
+Serial.println("[BOOT] Sistema avviato");
+Serial.print("[DEBUG] Free RAM: ");
+Serial.println(freeRam());
+
+// Durante operazioni
+Serial.print("[SENSOR] VL53 FL1: ");
+Serial.println(sensorData.frontLeft1);
+```
