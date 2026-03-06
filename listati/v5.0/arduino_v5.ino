@@ -1,9 +1,14 @@
 /*
  * RoboCup Rescue Maze 2026 - Arduino MEGA 2560
- * VERSIONE V5 - 4 Motori DC Indipendenti
+ * VERSIONE V5.1 - 4 Motori DC Mecanum con Versi Corretti
+ * 
+ * NOVITÀ V5.1:
+ * - Versi motori corretti per configurazione Mecanum speculare
+ * - FL: IN1=HIGH/IN2=LOW per avanti
+ * - FR/BL/BR: IN=LOW/HIGH per avanti (montaggio speculare)
  * 
  * Configurazione Hardware:
- * - 4 motori DC (uno per ruota)
+ * - 4 motori DC Mecanum (configurazione X)
  * - Driver A: ruote anteriori (FL + FR)
  * - Driver B: ruote posteriori (BL + BR)
  * - 3x VL53L0X (sensori distanza)
@@ -21,28 +26,28 @@
 
 // ========== MOTORI - Driver A (Anteriori) ==========
 #define MOTOR_FL_PWM 6        // Front Left - Velocità
-#define MOTOR_FL_IN1 22       // Front Left - Forward
-#define MOTOR_FL_IN2 23       // Front Left - Backward
+#define MOTOR_FL_IN1 22       // Front Left - IN1
+#define MOTOR_FL_IN2 23       // Front Left - IN2
 
 #define MOTOR_FR_PWM 7        // Front Right - Velocità
-#define MOTOR_FR_IN3 24       // Front Right - Forward
-#define MOTOR_FR_IN4 25       // Front Right - Backward
+#define MOTOR_FR_IN3 24       // Front Right - IN3
+#define MOTOR_FR_IN4 25       // Front Right - IN4
 
 // ========== MOTORI - Driver B (Posteriori) ==========
 #define MOTOR_BL_PWM 8        // Back Left - Velocità
-#define MOTOR_BL_IN1 26       // Back Left - Forward
-#define MOTOR_BL_IN2 27       // Back Left - Backward
+#define MOTOR_BL_IN1 26       // Back Left - IN1
+#define MOTOR_BL_IN2 27       // Back Left - IN2
 
 #define MOTOR_BR_PWM 9        // Back Right - Velocità
-#define MOTOR_BR_IN3 28       // Back Right - Forward
-#define MOTOR_BR_IN4 29       // Back Right - Backward
+#define MOTOR_BR_IN3 28       // Back Right - IN3
+#define MOTOR_BR_IN4 29       // Back Right - IN4
 
 // Velocità motori (0-255)
 #define MOTOR_SPEED_NORMAL 150
 #define MOTOR_SPEED_SLOW 100
 #define MOTOR_SPEED_TURN 120
 
-// Coefficienti calibrazione motori
+// Coefficienti calibrazione motori (per compensare derive)
 float motorFL_coefficient = 1.00;  // Front Left
 float motorFR_coefficient = 1.00;  // Front Right
 float motorBL_coefficient = 1.00;  // Back Left
@@ -131,7 +136,7 @@ bool movementSuccess = false;
 void setup() {
   // Inizializza seriale debug
   Serial.begin(9600);
-  Serial.println(F("=== RoboCup Rescue Maze V5 ==="));
+  Serial.println(F("=== RoboCup Rescue Maze V5.1 ==="));
   Serial.println(F("[INIT] Sistema in avvio..."));
   
   // Inizializza seriale Raspberry Pi
@@ -156,6 +161,7 @@ void setup() {
   wdt_enable(WDTO_4S);
   
   Serial.println(F("[INIT] Sistema pronto!"));
+  Serial.println(F("[INFO] Configurazione Mecanum speculare attiva"));
   currentState = CALIBRATION;
 }
 
@@ -180,37 +186,57 @@ void setupMotors() {
   // Inizializza motori fermi
   stopMotors();
   
-  Serial.println(F("[INIT] 4 motori DC configurati"));
+  Serial.println(F("[INIT] 4 motori Mecanum configurati"));
 }
 
-// ========== CONTROLLO MOTORI 4WD ==========
+// ========== CONTROLLO MOTORI 4WD MECANUM - VERSI CORRETTI ==========
 
 void setMotorFL(int speed, bool forward) {
-  // Front Left Motor
+  // FL: avanti = IN1=HIGH, IN2=LOW (configurazione verificata sperimentalmente)
   analogWrite(MOTOR_FL_PWM, abs(speed));
-  digitalWrite(MOTOR_FL_IN1, forward ? HIGH : LOW);
-  digitalWrite(MOTOR_FL_IN2, forward ? LOW : HIGH);
+  if (forward) {
+    digitalWrite(MOTOR_FL_IN1, HIGH);
+    digitalWrite(MOTOR_FL_IN2, LOW);
+  } else {
+    digitalWrite(MOTOR_FL_IN1, LOW);
+    digitalWrite(MOTOR_FL_IN2, HIGH);
+  }
 }
 
 void setMotorFR(int speed, bool forward) {
-  // Front Right Motor
+  // FR: avanti = IN3=LOW, IN4=HIGH (montaggio speculare)
   analogWrite(MOTOR_FR_PWM, abs(speed));
-  digitalWrite(MOTOR_FR_IN3, forward ? HIGH : LOW);
-  digitalWrite(MOTOR_FR_IN4, forward ? LOW : HIGH);
+  if (forward) {
+    digitalWrite(MOTOR_FR_IN3, LOW);
+    digitalWrite(MOTOR_FR_IN4, HIGH);
+  } else {
+    digitalWrite(MOTOR_FR_IN3, HIGH);
+    digitalWrite(MOTOR_FR_IN4, LOW);
+  }
 }
 
 void setMotorBL(int speed, bool forward) {
-  // Back Left Motor
+  // BL: avanti = IN1=LOW, IN2=HIGH (montaggio speculare)
   analogWrite(MOTOR_BL_PWM, abs(speed));
-  digitalWrite(MOTOR_BL_IN1, forward ? HIGH : LOW);
-  digitalWrite(MOTOR_BL_IN2, forward ? LOW : HIGH);
+  if (forward) {
+    digitalWrite(MOTOR_BL_IN1, LOW);
+    digitalWrite(MOTOR_BL_IN2, HIGH);
+  } else {
+    digitalWrite(MOTOR_BL_IN1, HIGH);
+    digitalWrite(MOTOR_BL_IN2, LOW);
+  }
 }
 
 void setMotorBR(int speed, bool forward) {
-  // Back Right Motor
+  // BR: avanti = IN3=LOW, IN4=HIGH (montaggio speculare)
   analogWrite(MOTOR_BR_PWM, abs(speed));
-  digitalWrite(MOTOR_BR_IN3, forward ? HIGH : LOW);
-  digitalWrite(MOTOR_BR_IN4, forward ? LOW : HIGH);
+  if (forward) {
+    digitalWrite(MOTOR_BR_IN3, LOW);
+    digitalWrite(MOTOR_BR_IN4, HIGH);
+  } else {
+    digitalWrite(MOTOR_BR_IN3, HIGH);
+    digitalWrite(MOTOR_BR_IN4, LOW);
+  }
 }
 
 void stopMotors() {
@@ -231,7 +257,7 @@ void stopMotors() {
 }
 
 void moveForward(int speed) {
-  // Tutti i motori avanti
+  // Tutti "forward" logico con versi cablati corretti
   setMotorFL(speed, true);
   setMotorFR(speed, true);
   setMotorBL(speed, true);
@@ -239,7 +265,7 @@ void moveForward(int speed) {
 }
 
 void moveBackward(int speed) {
-  // Tutti i motori indietro
+  // Tutti "backward" logico
   setMotorFL(speed, false);
   setMotorFR(speed, false);
   setMotorBL(speed, false);
@@ -247,7 +273,7 @@ void moveBackward(int speed) {
 }
 
 void turnLeft(int speed) {
-  // Ruote sinistre indietro, destre avanti
+  // Ruote sinistre indietro, destre avanti (rotazione sul posto)
   setMotorFL(speed, false);
   setMotorBL(speed, false);
   setMotorFR(speed, true);
@@ -255,7 +281,7 @@ void turnLeft(int speed) {
 }
 
 void turnRight(int speed) {
-  // Ruote sinistre avanti, destre indietro
+  // Ruote sinistre avanti, destre indietro (rotazione sul posto)
   setMotorFL(speed, true);
   setMotorBL(speed, true);
   setMotorFR(speed, false);
@@ -263,7 +289,7 @@ void turnRight(int speed) {
 }
 
 void moveForwardCalibrated(int baseSpeed) {
-  // Applica coefficienti per movimento dritto
+  // Applica coefficienti per compensare derive laterali
   setMotorFL(baseSpeed * motorFL_coefficient, true);
   setMotorFR(baseSpeed * motorFR_coefficient, true);
   setMotorBL(baseSpeed * motorBL_coefficient, true);
@@ -343,7 +369,7 @@ bool detectBlueTile() {
   uint32_t green = readTCS3200Color('G');
   uint32_t blue = readTCS3200Color('B');
   
-  // CALIBRARE QUESTI VALORI!
+  // CALIBRARE QUESTI VALORI in base al proprio sensore!
   // BLU: componente blu bassa, rosso e verde alti
   bool isBlue = (blue < 50) && (red > 100) && (green > 100);
   
@@ -799,10 +825,36 @@ void testSingleMotors() {
 
 void testStraightMovement() {
   Serial.println(F("=== TEST MOVIMENTO DRITTO ==="));
+  Serial.println(F("Verifica configurazione Mecanum speculare..."));
   
-  Serial.println(F("Movimento 3 secondi..."));
-  moveForwardCalibrated(MOTOR_SPEED_NORMAL);
+  Serial.println(F("Movimento avanti 3 secondi..."));
+  moveForward(MOTOR_SPEED_NORMAL);
   delay(3000);
+  stopMotors();
+  
+  delay(2000);
+  
+  Serial.println(F("Movimento indietro 3 secondi..."));
+  moveBackward(MOTOR_SPEED_NORMAL);
+  delay(3000);
+  stopMotors();
+  
+  Serial.println(F("=== TEST COMPLETATO ==="));
+}
+
+void testRotations() {
+  Serial.println(F("=== TEST ROTAZIONI ==="));
+  
+  Serial.println(F("Rotazione SINISTRA 2 secondi..."));
+  turnLeft(MOTOR_SPEED_TURN);
+  delay(2000);
+  stopMotors();
+  
+  delay(2000);
+  
+  Serial.println(F("Rotazione DESTRA 2 secondi..."));
+  turnRight(MOTOR_SPEED_TURN);
+  delay(2000);
   stopMotors();
   
   Serial.println(F("=== TEST COMPLETATO ==="));
