@@ -1,11 +1,6 @@
 /*
  * RoboCup Rescue Maze 2026 - Arduino MEGA 2560
- * VERSIONE V5.1 - 4 Motori DC Mecanum con Versi Corretti
  * 
- * NOVITÀ V5.1:
- * - Versi motori corretti per configurazione Mecanum speculare
- * - FL: IN1=HIGH/IN2=LOW per avanti
- * - FR/BL/BR: IN=LOW/HIGH per avanti (montaggio speculare)
  * 
  * Configurazione Hardware:
  * - 4 motori DC Mecanum (configurazione X)
