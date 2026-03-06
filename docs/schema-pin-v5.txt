@@ -1,0 +1,383 @@
+# 🔌 Schema Collegamenti Arduino Mega V5 - RoboCup Rescue Maze 2026
+
+## 📋 MOTORI - Driver A (Ruote Anteriori)
+
+### Motor Front Left (FL)
+- **PWM 6** → Driver A - ENA (Velocità motore anteriore sinistro)
+- **Pin 22** → Driver A - IN1 (Forward)
+- **Pin 23** → Driver A - IN2 (Backward)
+
+### Motor Front Right (FR)
+- **PWM 7** → Driver A - ENB (Velocità motore anteriore destro)
+- **Pin 24** → Driver A - IN3 (Forward)
+- **Pin 25** → Driver A - IN4 (Backward)
+
+---
+
+## 📋 MOTORI - Driver B (Ruote Posteriori)
+
+### Motor Back Left (BL)
+- **PWM 8** → Driver B - ENA (Velocità motore posteriore sinistro)
+- **Pin 26** → Driver B - IN1 (Forward)
+- **Pin 27** → Driver B - IN2 (Backward)
+
+### Motor Back Right (BR)
+- **PWM 9** → Driver B - ENB (Velocità motore posteriore destro)
+- **Pin 28** → Driver B - IN3 (Forward)
+- **Pin 29** → Driver B - IN4 (Backward)
+
+---
+
+## 📋 ALIMENTAZIONE DRIVER MOTORI
+
+### Driver A (Anteriori)
+- **VCC** → 5V Arduino (logica)
+- **GND** → GND comune (Arduino + Batteria)
+- **12V** → Batteria 12V (potenza motori)
+
+### Driver B (Posteriori)
+- **VCC** → 5V Arduino (logica)
+- **GND** → GND comune (Arduino + Batteria)
+- **12V** → Batteria 12V (potenza motori)
+
+⚠️ **IMPORTANTE**: Tutti i GND (Arduino, Driver A, Driver B, Batteria) devono essere collegati insieme!
+
+---
+
+## 📋 SENSORI DISTANZA VL53L0X (x3)
+
+Tutti e 3 i sensori usano il **bus I2C**:
+- **SDA** → Pin 20 Arduino Mega
+- **SCL** → Pin 21 Arduino Mega
+- **VCC** → 5V Arduino
+- **GND** → GND Arduino
+
+### Indirizzi I2C (configurati via software):
+- **VL53L0X Front**: 0x30
+- **VL53L0X Right**: 0x31
+- **VL53L0X Left**: 0x32
+
+---
+
+## 📋 SENSORE COLORE TCS3200
+
+- **S0** → Pin 30 (Frequency scaling)
+- **S1** → Pin 31 (Frequency scaling)
+- **S2** → Pin 32 (Color filter)
+- **S3** → Pin 33 (Color filter)
+- **OUT** → Pin 34 (Frequency output)
+- **VCC** → 5V Arduino
+- **GND** → GND Arduino
+
+---
+
+## 📋 SENSORE INCLINAZIONE MPU6050
+
+Usa il **bus I2C** (condiviso con VL53L0X):
+- **SDA** → Pin 20 Arduino Mega
+- **SCL** → Pin 21 Arduino Mega
+- **VCC** → 5V Arduino
+- **GND** → GND Arduino
+
+**Indirizzo I2C**: 0x68
+
+---
+
+## 📋 SERVO MOTORI
+
+### Servo Camera (rotazione camera Raspberry)
+- **Signal** → PWM 10
+- **VCC** → 5V Arduino
+- **GND** → GND Arduino
+
+### Servo Medikit (rilascio medikit)
+- **Signal** → PWM 11
+- **VCC** → 5V Arduino
+- **GND** → GND Arduino
+
+---
+
+## 📋 LED STATUS
+
+- **LED bianco** → Pin 13 (con resistenza 220Ω)
+- **GND** → GND Arduino
+
+Funzioni:
+- Lampeggio 5s quando vittima rilevata
+- ON fisso quando sistema attivo
+- OFF quando sistema in emergency stop
+
+---
+
+## 📋 COMUNICAZIONE RASPBERRY PI
+
+Usa **Serial1** (seconda porta seriale Arduino Mega):
+- **TX1 (Pin 18)** → RX Raspberry Pi
+- **RX1 (Pin 19)** → TX Raspberry Pi
+- **GND** → GND comune (Arduino + Raspberry)
+
+**Baud rate**: 9600
+
+⚠️ **NOTA**: Serial (USB) è usata per debug su computer, Serial1 per comunicazione con Raspberry.
+
+---
+
+## 📋 ALIMENTAZIONE GENERALE
+
+### Arduino Mega 2560
+- **Vin** → Batteria 12V (o alimentatore 7-12V)
+- **GND** → GND comune
+
+**Oppure**:
+- **USB** → Durante programmazione/debug
+- **Jack DC** → Alimentatore esterno 7-12V
+
+### Raspberry Pi
+- **5V GPIO** → Alimentazione dedicata 5V (consigliato power bank o alimentatore separato)
+- **GND** → GND comune con Arduino
+
+⚠️ **NON alimentare Raspberry dai 5V dell'Arduino!** Consuma troppa corrente.
+
+---
+
+## 📊 SCHEMA VISIVO ASCII
+
+```
+                    ARDUINO MEGA 2560
+                    ┌─────────────────┐
+                    │                 │
+        PWM 6  ────>│ FL_PWM          │
+         22   ────>│ FL_IN1          │
+         23   ────>│ FL_IN2          │
+        PWM 7  ────>│ FR_PWM          │
+         24   ────>│ FR_IN3          │
+         25   ────>│ FR_IN4          │
+                    │                 │
+        PWM 8  ────>│ BL_PWM          │
+         26   ────>│ BL_IN1          │
+         27   ────>│ BL_IN2          │
+        PWM 9  ────>│ BR_PWM          │
+         28   ────>│ BR_IN3          │
+         29   ────>│ BR_IN4          │
+                    │                 │
+    I2C SDA 20 <──>│ VL53L0X x3      │
+    I2C SCL 21 <──>│ MPU6050         │
+                    │                 │
+      30-34    ────>│ TCS3200         │
+                    │                 │
+      PWM 10   ────>│ Servo Camera    │
+      PWM 11   ────>│ Servo Medikit   │
+                    │                 │
+         13    ────>│ LED Status      │
+                    │                 │
+   TX1 18, RX1 19 <>│ Raspberry Pi    │
+                    │                 │
+        Vin    <────┤ Batteria 12V    │
+        GND    ─────┤ GND comune      │
+                    └─────────────────┘
+                            │
+                            │ GND comune
+                            │
+        ┌───────────────────┴───────────────────┐
+        │                                       │
+   ┌────▼────┐                            ┌────▼────┐
+   │ DRIVER A│                            │ DRIVER B│
+   │ (L298N) │                            │ (L298N) │
+   │         │                            │         │
+   │ ENA─────┼─> Motor FL (Front Left)   │ ENA─────┼─> Motor BL (Back Left)
+   │ IN1,IN2 │                            │ IN1,IN2 │
+   │         │                            │         │
+   │ ENB─────┼─> Motor FR (Front Right)  │ ENB─────┼─> Motor BR (Back Right)
+   │ IN3,IN4 │                            │ IN3,IN4 │
+   │         │                            │         │
+   │ VCC ────┼─< 5V Arduino               │ VCC ────┼─< 5V Arduino
+   │ 12V ────┼─< Batteria 12V             │ 12V ────┼─< Batteria 12V
+   │ GND ────┼─< GND comune               │ GND ────┼─< GND comune
+   └─────────┘                            └─────────┘
+        │                                      │
+        │                                      │
+        └──────────────┬───────────────────────┘
+                       │
+                   ┌───▼────┐
+                   │BATTERIA│
+                   │  12V   │
+                   │        │
+                   │ +  ────┼─> 12V Driver A/B + Vin Arduino
+                   │ -  ────┼─> GND comune
+                   └────────┘
+```
+
+---
+
+## 📊 TABELLA RIASSUNTIVA COMPLETA
+
+| Componente | Pin Arduino | Destinazione | Tipo Collegamento |
+|------------|-------------|--------------|-------------------|
+| **Motor FL PWM** | 6 | Driver A - ENA | PWM (Velocità) |
+| **Motor FL IN1** | 22 | Driver A - IN1 | Digitale (Forward) |
+| **Motor FL IN2** | 23 | Driver A - IN2 | Digitale (Backward) |
+| **Motor FR PWM** | 7 | Driver A - ENB | PWM (Velocità) |
+| **Motor FR IN3** | 24 | Driver A - IN3 | Digitale (Forward) |
+| **Motor FR IN4** | 25 | Driver A - IN4 | Digitale (Backward) |
+| **Motor BL PWM** | 8 | Driver B - ENA | PWM (Velocità) |
+| **Motor BL IN1** | 26 | Driver B - IN1 | Digitale (Forward) |
+| **Motor BL IN2** | 27 | Driver B - IN2 | Digitale (Backward) |
+| **Motor BR PWM** | 9 | Driver B - ENB | PWM (Velocità) |
+| **Motor BR IN3** | 28 | Driver B - IN3 | Digitale (Forward) |
+| **Motor BR IN4** | 29 | Driver B - IN4 | Digitale (Backward) |
+| **VL53L0X Front** | 20 (SDA), 21 (SCL) | I2C Bus | I2C (Address 0x30) |
+| **VL53L0X Right** | 20 (SDA), 21 (SCL) | I2C Bus | I2C (Address 0x31) |
+| **VL53L0X Left** | 20 (SDA), 21 (SCL) | I2C Bus | I2C (Address 0x32) |
+| **MPU6050** | 20 (SDA), 21 (SCL) | I2C Bus | I2C (Address 0x68) |
+| **TCS3200 S0** | 30 | Frequency scaling | Digitale Output |
+| **TCS3200 S1** | 31 | Frequency scaling | Digitale Output |
+| **TCS3200 S2** | 32 | Color filter | Digitale Output |
+| **TCS3200 S3** | 33 | Color filter | Digitale Output |
+| **TCS3200 OUT** | 34 | Frequency output | Digitale Input |
+| **Servo Camera** | 10 | Signal | PWM (Servo) |
+| **Servo Medikit** | 11 | Signal | PWM (Servo) |
+| **LED Status** | 13 | LED + Resistenza 220Ω | Digitale Output |
+| **Raspberry TX** | 19 (RX1) | Serial1 RX | UART |
+| **Raspberry RX** | 18 (TX1) | Serial1 TX | UART |
+| **Batteria 12V +** | Vin | Alimentazione | Potenza |
+| **GND Comune** | GND | Tutti i componenti | Terra comune |
+
+---
+
+## ⚡ NOTE IMPORTANTI
+
+### 1. GND Comune (CRITICO!)
+Tutti i GND devono essere collegati insieme:
+- GND Arduino
+- GND Driver A
+- GND Driver B
+- GND Batteria 12V
+- GND Raspberry Pi
+- GND sensori e servo
+
+**Senza GND comune il sistema NON funzionerà correttamente!**
+
+---
+
+### 2. Alimentazione Motori
+- Driver A e B: **12V dalla batteria** per i motori
+- Driver A e B: **5V dall'Arduino** per la logica
+- **Non invertire** 12V e 5V!
+
+---
+
+### 3. Pin PWM Disponibili Arduino Mega
+Pin usati per PWM:
+- **6, 7, 8, 9**: Motori
+- **10, 11**: Servo
+
+Altri pin PWM liberi (se servono): 2, 3, 4, 5, 12, 44, 45, 46
+
+---
+
+### 4. Bus I2C Condiviso
+I2C (SDA 20, SCL 21) è condiviso tra:
+- 3x VL53L0X (indirizzi diversi)
+- 1x MPU6050
+
+Ogni dispositivo ha indirizzo univoco, quindi non ci sono conflitti.
+
+---
+
+### 5. Tensione Logica
+- Arduino Mega: **5V logic**
+- Raspberry Pi: **3.3V logic**
+
+Per comunicazione UART (TX/RX):
+- **Arduino TX → Raspberry RX**: Serve divisore di tensione (5V → 3.3V)
+- **Raspberry TX → Arduino RX**: Funziona direttamente (3.3V è sufficiente per 5V logic)
+
+**Divisore di tensione per TX Arduino → RX Raspberry:**
+```
+Arduino TX1 (5V) ──┬── Resistenza 1kΩ ──┬── Raspberry RX (3.3V)
+                   │                    │
+                   └── Resistenza 2kΩ ──┴── GND
+```
+
+---
+
+### 6. Ordine di Accensione Consigliato
+1. Collega batteria 12V
+2. Accendi Arduino Mega (Vin o USB)
+3. Verifica LED power Arduino acceso
+4. Accendi Raspberry Pi
+5. Attendi boot Raspberry (~30 secondi)
+6. Avvia script Python su Raspberry
+7. Arduino e Raspberry iniziano comunicazione
+
+---
+
+### 7. Test Iniziale
+Prima di montare tutto sul robot:
+
+1. **Test motori singoli**:
+   - Carica sketch Arduino
+   - Apri Serial Monitor (9600 baud)
+   - Commenta `loop()` e decomenta `testSingleMotors()` in setup
+   - Verifica che ogni motore ruoti correttamente
+
+2. **Test sensori**:
+   - Verifica valori VL53L0X (distanze in mm)
+   - Verifica valori TCS3200 (colori)
+   - Verifica valori MPU6050 (pitch in gradi)
+
+3. **Test comunicazione**:
+   - Collega Raspberry Pi
+   - Avvia script Python
+   - Verifica messaggi scambiati via Serial Monitor
+
+---
+
+## 🔧 Calibrazione Necessaria
+
+### 1. Coefficienti Motori
+Modifica valori in base a test movimento dritto:
+```cpp
+float motorFL_coefficient = 1.00;
+float motorFR_coefficient = 1.00;
+float motorBL_coefficient = 1.00;
+float motorBR_coefficient = 1.00;
+```
+
+### 2. Tempo Rotazione 90°
+Calibra delay per rotazioni precise:
+```cpp
+delay(500);  // Ruota 90° - CALIBRARE questo valore
+```
+
+### 3. Soglie TCS3200
+Calibra soglie colori in base al tuo sensore:
+```cpp
+bool isBlue = (blue < 50) && (red > 100) && (green > 100);
+```
+Usa Serial Monitor per leggere valori reali e adattare.
+
+---
+
+## ✅ Checklist Controllo Collegamenti
+
+Prima di alimentare il sistema:
+
+- [ ] Tutti i motori collegati ai driver corretti (FL/FR → A, BL/BR → B)
+- [ ] Pin PWM (6, 7, 8, 9) collegati a ENA/ENB
+- [ ] Pin digitali (22-29) collegati a IN1-IN4
+- [ ] GND comune Arduino + Driver A + Driver B + Batteria
+- [ ] 12V batteria collegato a entrambi i driver
+- [ ] 5V Arduino collegato a VCC dei driver
+- [ ] I2C (SDA 20, SCL 21) collegato a tutti sensori I2C
+- [ ] TCS3200 collegato a pin 30-34
+- [ ] Servo collegati a pin 10 e 11
+- [ ] LED collegato a pin 13 con resistenza 220Ω
+- [ ] TX1/RX1 collegati a Raspberry (con divisore tensione)
+- [ ] Nessun corto circuito visibile
+- [ ] Cavi ben saldi (non allentati)
+
+---
+
+**Fine Schema Collegamenti V5**
+**Pronto per implementazione hardware! 🚀🤖**
