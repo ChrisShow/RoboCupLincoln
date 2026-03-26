@@ -37,59 +37,18 @@ void setup() {
 }
 
 void loop() {
-  /*
-  Serial.println("Avanti motore 1");
-  digitalWrite(IN1, HIGH);  
-  digitalWrite(IN2, LOW);
-  delay(3000);
-
-  Serial.println("Fermo motore 1");
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  delay(2000);
-
-  Serial.println("Avanti motore 2");
-  digitalWrite(IN3, HIGH);  
-  digitalWrite(IN4, LOW);
-  delay(3000);   
-
-  Serial.println("Fermo motore 2");
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-  delay(2000);
-
-  Serial.println("Indietro motore 1");
-  digitalWrite(IN1, LOW);   
-  digitalWrite(IN2, HIGH);
-  delay(3000);  
-
-  Serial.println("Fermo motore 1");
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  delay(2000);  
-
-  Serial.println("Indietro motore 2");
-  digitalWrite(IN3, LOW);   
-  digitalWrite(IN4, HIGH);
-  delay(3000);
-
-  Serial.println("Fermo motore 1");
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-  delay(2000);  
-  */
 
   Serial.println("Avanti motore 1 e 2");
-  digitalWrite(IN1, HIGH);  
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
+  digitalWrite(IN1, LOW);  
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
   delay(3000);
 
-  digitalWrite(IN5, LOW);  
-  digitalWrite(IN6, HIGH);
-  digitalWrite(IN7, LOW);
-  digitalWrite(IN8, HIGH);
+  digitalWrite(IN5, HIGH);  
+  digitalWrite(IN6, LOW);
+  digitalWrite(IN7, HIGH);
+  digitalWrite(IN8, LOW);
   delay(3000);
 
 
