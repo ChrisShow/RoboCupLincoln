@@ -212,6 +212,7 @@ void handleCommand(String cmd) {
 void rotate(float rel_deg) {
   float target = mpu.getAngleZ() + rel_deg;
   float error, lastError = 0, integral = 0;
+  unsigned long start_time = millis();
   // Usiamo i valori caricati dalla configurazione
   while(abs(error = target - mpu.getAngleZ()) > 1.5 && (millis() - start_time < 4000)) {
     mpu.update();
