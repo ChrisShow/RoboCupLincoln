@@ -65,10 +65,11 @@ int moveCounter = 0;
 unsigned long lastMoveTime = 0;
 
 // --- SOGLIE ALGORITMO (Ricalibrate per 22cm) ---
-const float SOGLIA_MURO_FRONT = 9.0;
-const float SOGLIA_MURO_LAT = 15.0;
-const float TARGET_LAT_DIST = 10.0;
-const float TARGET_FRONT_DIST = 4.0;
+const float SOGLIA_MURO_FRONT = 25.0;  // Sopra i 25cm la cella davanti è considerata libera
+const float SOGLIA_MURO_LAT = 18.0;    // Sopra i 18cm il muro laterale è considerato assente
+const float TARGET_LAT_DIST = 10.0;    // Distanza ideale ToF-Muro per essere centrati (10cm)
+const float TARGET_FRONT_DIST = 6.0;   // Stop a 6cm dal ToF (= 2cm dal sensore colore)
+const float DIST_PERICOLO_RUOTA = 4.5; // Se il ToF legge meno di 4.5cm, la ruota sta per toccare!
 
 // --- FUNZIONI SENSORE COLORE ---
 void readRawColor(int &r, int &g, int &b) {
@@ -118,7 +119,7 @@ int getDetectedColor() {
   long d_red  = sq((long)r - config.red.r)    + sq((long)g - config.red.g)    + sq((long)b - config.red.b);
   long d_blue = sq((long)r - config.blue.r)   + sq((long)g - config.blue.g)   + sq((long)b - config.blue.b);
   long d_black= sq((long)r - config.black.r)  + sq((long)g - config.black.g)  + sq((long)b - config.black.b);
-  
+
   long minDist = d_norm; int winner = 0;
   if(d_grey < minDist) { minDist = d_grey; winner = 1; }
   if(d_red < minDist)  { minDist = d_red;  winner = 2; }
@@ -230,26 +231,25 @@ void moveForward() {
   
   float dF_start = sensors[0].readRangeContinuousMillimeters()/10.0;
   float dB_start = sensors[1].readRangeContinuousMillimeters()/10.0;
-  bool wallFront = (dF_start < 45.0);
-  bool wallBack = (dB_start < 10.0);
+  
+  // Usiamo la nuova soglia di 25cm per capire se abbiamo un muro davanti
+  bool wallFront = (dF_start < SOGLIA_MURO_FRONT); 
+  bool wallBack = (dB_start < 15.0); // Leggermente alzata per sicurezza
 
   while(true) {
     mpu.update();
-    float pitch = mpu.getAngleY(); // Inclinazione fronte-retro
+    float pitch = mpu.getAngleY();
 
     if (abs(pitch) > 15.0) {
       rampMode = true;
-      // BOOST SALITA (Pitch positivo) o FRENO DISCESA (Pitch negativo)
       int power = (pitch > 15.0) ? 230 : 80;
       setMotors(power, power);
     } else if (rampMode && abs(pitch) < 5.0) {
-      // Uscita dalla rampa: siamo tornati in piano
       stopMotors();
       Serial.println("<MOVE:RAMP>");
       scanSensors();
       return;
     } else {
-      // Movimento normale 20ms loop
       if (millis() - lastMoveTime >= 20) {
         lastMoveTime = millis(); moveCounter++;
         
@@ -258,27 +258,50 @@ void moveForward() {
           stopMotors(); Serial.println("<MOVE:BLACK>"); return;
         }
 
-        // Anti-Drift ToF
+        // --- ANTI-DRIFT RICALIBRATO ---
         float dRA = sensors[2].readRangeContinuousMillimeters()/10.0;
         float dRP = sensors[3].readRangeContinuousMillimeters()/10.0;
         float dLA = sensors[4].readRangeContinuousMillimeters()/10.0;
         float dLP = sensors[5].readRangeContinuousMillimeters()/10.0;
+        
         float drift = 0;
-        if(dRA < SOGLIA_MURO_LAT && dRP < SOGLIA_MURO_LAT) drift = (dRA - dRP) * 15.0;
-        else if(dLA < SOGLIA_MURO_LAT && dLP < SOGLIA_MURO_LAT) drift = (dLP - dLA) * 15.0;
+        // Caso 1: Corridoio stretto (muri da entrambi i lati) -> Resta al centro
+        if (dRA < SOGLIA_MURO_LAT && dLA < SOGLIA_MURO_LAT) {
+            drift = (dRA - dLA) * 8.0; 
+        } 
+        // Caso 2: Muro solo a destra -> Mantieni 10cm dal sensore (7cm dalle ruote)
+        else if (dRA < SOGLIA_MURO_LAT) {
+            drift = (dRA - TARGET_LAT_DIST) * 12.0;
+        }
+        // Caso 3: Muro solo a sinistra -> Mantieni 10cm dal sensore
+        else if (dLA < SOGLIA_MURO_LAT) {
+            drift = (TARGET_LAT_DIST - dLA) * 12.0;
+        }
+
+        // EMERGENZA RUOTE: Se i ToF leggono meno di 4.5cm, la ruota sta toccando!
+        if (dRA < DIST_PERICOLO_RUOTA || dRP < DIST_PERICOLO_RUOTA) drift = -50; 
+        if (dLA < DIST_PERICOLO_RUOTA || dLP < DIST_PERICOLO_RUOTA) drift = 50;
 
         setMotors(baseSpeed + drift, baseSpeed - drift);
 
-        // Fine cella standard
+        // --- CONDIZIONI DI FINE CELLA ---
         float dF = sensors[0].readRangeContinuousMillimeters()/10.0;
         float dB = sensors[1].readRangeContinuousMillimeters()/10.0;
+        
+        // 1. Muro frontale: fermati a 6cm (il sensore colore sarà a 2cm dal muro)
         if(wallFront && dF <= TARGET_FRONT_DIST) break;
-        if(wallBack && dB >= (dB_start + 30.0)) break;
-        if(!wallFront && !wallBack && moveCounter >= 75) break; 
+        
+        // 2. Muro posteriore: se ti sei allontanato di 28cm (cella da 30cm)
+        if(wallBack && dB >= (dB_start + 28.0)) break; 
+        
+        // 3. Fail-safe: se non hai muri, fermati dopo circa 30cm di corsa
+        if(!wallFront && !wallBack && moveCounter >= 85) break; 
       }
     }
   }
-  stopMotors(); Serial.println("<MOVE:OK>"); scanSensors();
+  stopMotors(); 
+  Serial.println("<MOVE:OK>"); 
+  scanSensors();
 }
 
 void scanSensors() {
