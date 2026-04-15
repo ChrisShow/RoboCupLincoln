@@ -53,6 +53,7 @@ class Robot:
         self.returning_home = False
         self.dijkstra_path = []
         self.checkpoints = set() # Celle grigie/rosse (checkpoint di gara)
+        self.no_transit = set()  # Celle blu: transitabili una volta sola, poi bloccate
 
     def update_position(self, steps=1):
         """
@@ -91,7 +92,7 @@ class Robot:
                 if is_wall is False:  # False = passabile (non c'è muro)
                     nx = curr[0] + DIR_DX[direction]
                     ny = curr[1] + DIR_DY[direction]
-                    if (nx, ny) in self.map and (nx, ny) not in seen:
+                    if (nx, ny) in self.map and (nx, ny) not in seen and (nx, ny) not in self.no_transit:
                         heapq.heappush(queue, (cost + 1, (nx, ny), path))
         return []
 
@@ -198,7 +199,7 @@ def find_nearest_unexplored(robot):
             if cell.walls[d] is False:
                 nx = x + DIR_DX[d]
                 ny = y + DIR_DY[d]
-                if (nx, ny) not in seen:
+                if (nx, ny) not in seen and (nx, ny) not in robot.no_transit:
                     seen.add((nx, ny))
                     if (nx, ny) not in robot.visited:
                         return (nx, ny)  # Trovata! È la più vicina.
@@ -309,6 +310,7 @@ def main():
             robot.returning_home = False
             robot.dijkstra_path = []
             robot.checkpoints = set()
+            robot.no_transit = set()
             print("[NAV] Gara Iniziata. Mappa resettata.")
 
         # ------------------------------------------------------------------ #
@@ -335,10 +337,11 @@ def main():
             cell.walls[(robot.orientation + 2) % 4] = False
 
             # fix #2: gestione colori speciali
-            if c == 3:  # BLU → attendi 5 secondi (regolamento)
-                print(f"[NAV] Cella BLU a {curr} — invio WAIT:5")
+            if c == 3:  # BLU → attendi 5s, poi blocca: non ci si può più passare
+                print(f"[NAV] Cella BLU a {curr} — attesa 5s, poi bloccata come nera")
                 comm.send("<WAIT:5>")
                 time.sleep(5.5)
+                robot.no_transit.add(curr)  # Da ora in poi = inaccessibile
             elif c == 1:  # GRIGIO → checkpoint di gara
                 robot.checkpoints.add(curr)
                 print(f"[NAV] Checkpoint GRIGIO a {curr}")

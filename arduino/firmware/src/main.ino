@@ -65,12 +65,21 @@ struct ToFCache {
 const long  MAGIC_VAL        = 0xABCD1234;
 const int   TOF_REFRESH_MS   = 15;   // Frequenza refresh cache sensori (ms)
 
-// Soglie ricalibrate per robot 22 cm in cella 30x30 cm
-const float SOGLIA_MURO_FRONT    = 25.0;  // cm — cella davanti occupata
-const float SOGLIA_MURO_LAT      = 18.0;  // cm — muro laterale presente
-const float TARGET_LAT_DIST      = 10.0;  // cm — distanza ideale da muro lat.
-const float TARGET_FRONT_DIST    =  6.0;  // cm — stop al centro cella (fronte)
-const float DIST_PERICOLO_RUOTA  =  4.5;  // cm — emergenza contatto ruota
+// ---------------------------------------------------------------
+// Soglie geometricamente derivate — robot 22cm, cella 30x30cm
+//
+//  Scocca 17×10cm. Centro rotazione: 8.5cm ant/post, 5.0cm lat.
+//  Front ToF  : 8.5cm avanti  → lettura muro frontale centrato = 15-8.5 = 6.5cm
+//  Rear ToF   : 8.5cm dietro  → lettura muro posteriore centrato = 6.5cm
+//  Side ToF   : 5.0cm laterale→ lettura muro laterale centrato  = 15-5.0 = 10.0cm
+//  Ruote      : 8.0cm laterale→ clearance muro centrato = 15-8.0 = 7.0cm
+//  Sens.colore: 12.5cm avanti → clearance muro frontale = 15-12.5 = 2.5cm
+// ---------------------------------------------------------------
+const float SOGLIA_MURO_FRONT    = 25.0;  // cm — discrimina muro(6.5) da apertura(36.5+)
+const float SOGLIA_MURO_LAT      = 18.0;  // cm — discrimina muro(10) da apertura(40+)
+const float TARGET_LAT_DIST      = 10.0;  // cm — distanza ideale ToF laterale ↔ muro
+const float TARGET_FRONT_DIST    =  6.5;  // cm — stop al centro cella (15-8.5=6.5)
+const float DIST_PERICOLO_RUOTA  =  4.5;  // cm — ruota a 1.5cm dal muro (contatto a 3cm)
 const float RAMP_PITCH_ENTER     = 15.0;  // gradi — ingresso modalità rampa
 const float RAMP_PITCH_EXIT      =  5.0;  // gradi — uscita modalità rampa
 
@@ -325,9 +334,16 @@ void moveForward() {
     float dF = tof.front;
     float dB = tof.back;
 
-    if (wallFront && dF <= TARGET_FRONT_DIST)       break; // Muro frontale
-    if (wallBack  && dB >= (dB_start + 28.0f))      break; // Muro posteriore +28cm
-    if (!wallFront && !wallBack && moveCounter >= 85) break; // Fail-safe ~30cm
+    // Rilevazione dinamica muro frontale:
+    // All'avvio dF_start = 36.5cm (muro in fondo alla cella successiva) → wallFront=false.
+    // Durante il movimento dF scende; quando entra nel range lo iniziamo a tracciare.
+    if (!wallFront && dF < SOGLIA_MURO_FRONT) {
+      wallFront = true;  // Muro entrato nel range → ora tracciamo la distanza
+    }
+
+    if (wallFront && dF <= TARGET_FRONT_DIST)          break; // Centro cella: ToF=6.5cm
+    if (wallBack  && dB >= (dB_start + 29.5f))         break; // Muro post: percorsi ~29.5cm
+    if (!wallFront && !wallBack && moveCounter >= 90)  break; // Fail-safe ~30cm
   }
 
   stopMotors();
