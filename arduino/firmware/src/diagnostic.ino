@@ -84,15 +84,17 @@ void setup() {
     delay(500);
   }
 
-  // 3. Test Motori
+  // 3. Test Motori (LOGICA INVERTITA)
   lcd.clear(); lcd.print("3. Testing Motors");
   lcd.setCursor(0,1); lcd.print("Forward...");
-  analogWrite(PWM_DX, 100); digitalWrite(DX_IN1, HIGH); digitalWrite(DX_IN2, LOW);
-  analogWrite(PWM_SX, 100); digitalWrite(SX_IN1, HIGH); digitalWrite(SX_IN2, LOW);
+  // Per andare avanti ora usiamo LOW/HIGH invece di HIGH/LOW
+  analogWrite(PWM_DX, 100); digitalWrite(DX_IN1, LOW); digitalWrite(DX_IN2, HIGH);
+  analogWrite(PWM_SX, 100); digitalWrite(SX_IN1, LOW); digitalWrite(SX_IN2, HIGH);
   delay(1000);
+  
   lcd.setCursor(0,1); lcd.print("Backward...");
-  digitalWrite(DX_IN1, LOW); digitalWrite(DX_IN2, HIGH);
-  digitalWrite(SX_IN1, LOW); digitalWrite(SX_IN2, HIGH);
+  digitalWrite(DX_IN1, HIGH); digitalWrite(DX_IN2, LOW);
+  digitalWrite(SX_IN1, HIGH); digitalWrite(SX_IN2, LOW);
   delay(1000);
   // Stop
   digitalWrite(DX_IN1, HIGH); digitalWrite(DX_IN2, HIGH);

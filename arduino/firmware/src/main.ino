@@ -295,8 +295,9 @@ void handleRescue(char pos, int type) {
 }
 
 void setMotors(int l, int r) {
-  digitalWrite(SX_IN1, l>=0); digitalWrite(SX_IN2, l<0);
-  digitalWrite(DX_IN1, r>=0); digitalWrite(DX_IN2, r<0);
+  // Logica Invertita via Software: l>=0 (Avanti) attiva LOW su IN1 e HIGH su IN2
+  digitalWrite(SX_IN1, l<0);  digitalWrite(SX_IN2, l>=0);
+  digitalWrite(DX_IN1, r<0);  digitalWrite(DX_IN2, r>=0);
   analogWrite(PWM_SX, abs(l)); analogWrite(PWM_DX, abs(r));
 }
 

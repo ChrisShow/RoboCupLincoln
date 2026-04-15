@@ -55,23 +55,18 @@ void loop() {
 
 // Funzione helper per il controllo motori
 void setMotors(int left, int right) {
-  // Motore Sinistro
+  // Logica Invertita: left>=0 (Avanti) attiva LOW su SX_IN1 e HIGH su SX_IN2
   if (left >= 0) {
-    digitalWrite(SX_IN1, HIGH);
-    digitalWrite(SX_IN2, LOW);
+    digitalWrite(SX_IN1, LOW); digitalWrite(SX_IN2, HIGH);
   } else {
-    digitalWrite(SX_IN1, LOW);
-    digitalWrite(SX_IN2, HIGH);
+    digitalWrite(SX_IN1, HIGH); digitalWrite(SX_IN2, LOW);
   }
   analogWrite(PWM_SX, abs(left));
 
-  // Motore Destro
   if (right >= 0) {
-    digitalWrite(DX_IN1, HIGH);
-    digitalWrite(DX_IN2, LOW);
+    digitalWrite(DX_IN1, LOW); digitalWrite(DX_IN2, HIGH);
   } else {
-    digitalWrite(DX_IN1, LOW);
-    digitalWrite(DX_IN2, HIGH);
+    digitalWrite(DX_IN1, HIGH); digitalWrite(DX_IN2, LOW);
   }
   analogWrite(PWM_DX, abs(right));
 }

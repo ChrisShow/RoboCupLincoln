@@ -10,8 +10,14 @@ import heapq
 # --- CONFIGURAZIONE ---
 SERIAL_PORT = '/dev/ttyACM0' 
 BAUD_RATE = 115200
+SAVE_FOR_TRAINING = False  # Metti a False domani per la gara
+SAVE_DIR = os.path.join(os.path.dirname(__file__), 'vision', 'scatti_gara')
 
-# Range HSV per Cognitive Targets (V5 Strict)
+if SAVE_FOR_TRAINING and not os.path.exists(SAVE_DIR):
+    os.makedirs(SAVE_DIR)
+    print(f"[SYSTEM] Cartella salvataggio dataset creata: {SAVE_DIR}")
+
+# Range HSV per Cognitive Targets (Legacy o per riferimento)
 COLORI_HSV = {
     "VERDE":  [(np.array([35, 50, 40]),   np.array([85, 255, 255]))],
     "ROSSO":  [(np.array([0, 70, 50]),    np.array([10, 255, 255])),
@@ -83,36 +89,42 @@ class VisionSystem:
             print(f"[VISION] YOLO Modello V3 caricato correttamente.")
         
         # Mappatura classi v3: 0:FAKE, 1:OMEGA, 2:PHI, 3:PSI
-        # ID: (Tipo_Soccorso, Priorità)
+        self.cl_names = {0: "FAKE", 1: "OMEGA", 2: "PHI", 3: "PSI"}
         self.cl_map = {
-            0: (0, 0),  # FAKE -> Ignora
-            1: (1, 10), # OMEGA -> Tipo 1
-            2: (3, 10), # PHI -> Tipo 3
-            3: (2, 10)  # PSI -> Tipo 2
+            0: (0, 0),  # FAKE
+            1: (1, 10), # OMEGA
+            2: (3, 10), # PHI
+            3: (2, 10)  # PSI
         }
 
     def scan_wall(self, side, frame):
-        """Analizza il fotogramma cercando solo le lettere greche (PHI, PSI, OMEGA)."""
-        if frame is None or self.model is None: return []
+        """Analizza il fotogramma e salva la foto se SAVE_FOR_TRAINING è True."""
+        if frame is None: return []
         
-        results = self.model.predict(frame, imgsz=640, conf=0.5, verbose=False)
+        # 1. Inferenza IA attuale
+        label_rilevata = "NULL"
         candidati = []
+        if self.model:
+            results = self.model.predict(frame, imgsz=640, conf=0.4, verbose=False)
+            for r in results:
+                for box in r.boxes:
+                    cls_id = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    label_rilevata = self.cl_names.get(cls_id, "UNK")
+                    res_tipo, priorita = self.cl_map.get(cls_id, (0, 0))
+                    if priorita == 10:
+                        candidati.append({'tipo': res_tipo, 'conf': conf})
 
-        for r in results:
-            for box in r.boxes:
-                cls_id = int(box.cls[0])
-                conf = float(box.conf[0])
-                res_tipo, priorita = self.cl_map.get(cls_id, (0, 0))
-
-                if priorita == 10: # È una lettera greca valida (1, 2 o 3)
-                    candidati.append({'tipo': res_tipo, 'conf': conf})
+        # 2. Salvataggio per dataset (Strategia per le prove di oggi)
+        if SAVE_FOR_TRAINING:
+            timestamp = time.strftime("%H%M%S")
+            filename = f"{side}_{timestamp}_{label_rilevata}.jpg"
+            cv2.imwrite(os.path.join(SAVE_DIR, filename), frame)
 
         if not candidati: return []
 
-        # Sceglie la rilevazione con la confidenza più alta
         candidati.sort(key=lambda x: x['conf'], reverse=True)
         vincitore = candidati[0]
-        
         print(f"[VISION] Rilevata vittima Tipo {vincitore['tipo']} su lato {side}")
         return [(vincitore['tipo'], side)]
 
@@ -176,9 +188,10 @@ def main():
     vision = VisionSystem()
     robot = Robot()
     
-    # Inizializzazione Cam con MJPG per evitare timeout su RPi
-    cap_dx = cv2.VideoCapture(0)
-    cap_sx = cv2.VideoCapture(2)
+    # ID Camera Corretti: Sinistra=0, Destra=2
+    cap_sx = cv2.VideoCapture(0)
+    cap_dx = cv2.VideoCapture(2)
+    
     for cap in [cap_dx, cap_sx]:
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
