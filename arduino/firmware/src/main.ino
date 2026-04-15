@@ -186,6 +186,7 @@ void loop() {
   if (isRunning) {
     if (Serial.available()) {
       String cmd = Serial.readStringUntil('>');
+      cmd.trim();
       if (cmd.startsWith("<")) handleCommand(cmd.substring(1));
     }
   }
@@ -195,6 +196,10 @@ void loop() {
 void handleCommand(String cmd) {
   if(cmd == "SCAN:FRONT") { rotate(-90); Serial.println("<SCAN:OK>"); }
   else if(cmd == "SCAN:DONE") rotate(90);
+  
+  // <-- AGGIUNGI QUESTA RIGA: Risponde subito a Python e bypassa i 5 secondi di delay!
+  else if(cmd == "VIC:DONE") Serial.println("<VIC:DONE>"); 
+  
   else if(cmd.startsWith("VIC:")) handleRescue(cmd.charAt(4), cmd.substring(6).toInt());
   else if(cmd.startsWith("GO:")) {
     int d = cmd.substring(3).toInt();
