@@ -212,7 +212,7 @@ void rotate(float rel_deg) {
   float target = mpu.getAngleZ() + rel_deg;
   float error, lastError = 0, integral = 0;
   // Usiamo i valori caricati dalla configurazione
-  while(abs(error = target - mpu.getAngleZ()) > 1.5) {
+  while(abs(error = target - mpu.getAngleZ()) > 1.5 && (millis() - start_time < 4000)) {
     mpu.update();
     float derivative = error - lastError;
     integral += error;

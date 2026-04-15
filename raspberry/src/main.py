@@ -97,36 +97,37 @@ class VisionSystem:
             3: (2, 10)  # PSI
         }
 
-    def scan_wall(self, side, frame):
-        """Analizza il fotogramma e salva la foto se SAVE_FOR_TRAINING è True."""
-        if frame is None: return []
-        
-        # 1. Inferenza IA attuale
-        label_rilevata = "NULL"
-        candidati = []
-        if self.model:
-            results = self.model.predict(frame, imgsz=640, conf=0.4, verbose=False)
-            for r in results:
-                for box in r.boxes:
-                    cls_id = int(box.cls[0])
-                    conf = float(box.conf[0])
-                    label_rilevata = self.cl_names.get(cls_id, "UNK")
-                    res_tipo, priorita = self.cl_map.get(cls_id, (0, 0))
-                    if priorita == 10:
-                        candidati.append({'tipo': res_tipo, 'conf': conf})
+    def scan_wall(self, pos, frame):
+        frame_quadrato = cv2.copyMakeBorder(frame, 80, 80, 0, 0, cv2.BORDER_CONSTANT, value=[0, 0, 0])
 
-        # 2. Salvataggio per dataset (Strategia per le prove di oggi)
-        if SAVE_FOR_TRAINING:
-            timestamp = time.strftime("%H%M%S")
-            filename = f"{side}_{timestamp}_{label_rilevata}.jpg"
-            cv2.imwrite(os.path.join(SAVE_DIR, filename), frame)
+        results = self.model(frame_quadrato, imgsz=640, verbose=False)
+        boxes = results[0].boxes
+        names = results[0].names
 
-        if not candidati: return []
+        target_scelto = None
+        max_conf = 0.0
 
-        candidati.sort(key=lambda x: x['conf'], reverse=True)
-        vincitore = candidati[0]
-        print(f"[VISION] Rilevata vittima Tipo {vincitore['tipo']} su lato {side}")
-        return [(vincitore['tipo'], side)]
+        # Analizza i rilevamenti
+        for box in boxes:
+            cls_name = names[int(box.cls[0])]
+            conf = float(box.conf[0])
+
+            # Se è uno dei nostri target VIP
+            if cls_name in ["PHI", "OMEGA", "PSI"]:
+                # Salviamo solo quello con la confidenza più alta in assoluto
+                if conf > max_conf:
+                    max_conf = conf
+                    target_scelto = cls_name
+
+        vittime = []
+        # Se abbiamo trovato un target valido, mappiamo i kit (modificate i numeri in base al regolamento 2026)
+        if target_scelto:
+            mappa_kit = {"PHI": 1, "OMEGA": 1, "PSI": 1} 
+            num_kit = mappa_kit[target_scelto]
+            vittime.append((num_kit, pos)) # Formato (type/kit, pos) per l'Arduino
+            print(f"🎯 Rilevato {target_scelto} a {pos} con {max_conf*100:.1f}%")
+            
+        return vittime
 
 class Comm:
     def __init__(self):
@@ -194,8 +195,9 @@ def main():
     
     for cap in [cap_dx, cap_sx]:
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
 
     time.sleep(2)
     while comm.receive(): pass 
