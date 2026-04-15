@@ -63,18 +63,25 @@ void setup() {
     pinMode(xshutPins[i], OUTPUT);
     digitalWrite(xshutPins[i], LOW);
   }
-  delay(50);
+  delay(100);
   
   for(int i=0; i<6; i++) {
     digitalWrite(xshutPins[i], HIGH);
-    delay(50);
+    delay(100);
+    
+    sensors[i].setTimeout(500); // Imposta timeout di 500ms per evitare blocchi
+    
     if (!sensors[i].init()) {
-      lcd.setCursor(0,1); lcd.print("ToF ERR: "); lcd.print(sensorNames[i]);
+      lcd.clear();
+      lcd.print("ToF ERR: "); lcd.print(sensorNames[i]);
+      lcd.setCursor(0,1); lcd.print("Check XSHUT/I2C");
+      Serial.print("ERRORE INIZIALIZZAZIONE SENSORE: "); Serial.println(sensorNames[i]);
       while(1);
     }
+    
     sensors[i].setAddress(0x30 + i);
-    lcd.setCursor(0,1); lcd.print(sensorNames[i]); lcd.print(" OK      ");
-    delay(300);
+    lcd.setCursor(0,1); lcd.print(sensorNames[i]); lcd.print(" OK (0x"); lcd.print(0x30+i, HEX); lcd.print(")");
+    delay(500);
   }
 
   // 3. Test Motori

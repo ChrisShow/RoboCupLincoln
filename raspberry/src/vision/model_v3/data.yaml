@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 4
+names: ['FAKE', 'OMEGA', 'PHI', 'PSI']
+
+roboflow:
+  workspace: cristian-njob9
+  project: robocup2026nocognitive
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/cristian-njob9/robocup2026nocognitive/dataset/1
