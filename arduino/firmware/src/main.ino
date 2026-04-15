@@ -196,10 +196,31 @@ void setMotors(int l, int r) {
 void stopMotors() { setMotors(0, 0); }
 
 // ============================================================
+//  LOGGING — LCD + Seriale debug
+// ============================================================
+
+// Mostra due righe sul display LCD (tronca a 16 char per riga)
+void lcdShow(String line1, String line2 = "") {
+  lcd.clear();
+  lcd.setCursor(0, 0); lcd.print(line1.substring(0, 16));
+  lcd.setCursor(0, 1); lcd.print(line2.substring(0, 16));
+}
+
+// Invia messaggio di debug al Raspberry (prefisso [D] per distinguerlo dai pacchetti)
+void dbg(String msg) {
+  Serial.println("[D] " + msg);
+}
+
+// ============================================================
 //  ROTAZIONE PID con anti-windup
 // ============================================================
 
 void rotate(float rel_deg) {
+  String dirStr = (rel_deg > 0) ? "+" + String((int)rel_deg) + "deg DX"
+                                : String((int)rel_deg) + "deg SX";
+  lcdShow("ROTAZIONE", dirStr);
+  dbg("Rotazione " + dirStr + " target=" + String(mpu.getAngleZ() + rel_deg, 1));
+
   mpu.update();
   float target   = mpu.getAngleZ() + rel_deg;
   float lastError = 0;
@@ -212,7 +233,6 @@ void rotate(float rel_deg) {
     if (abs(error) <= 1.5) break;
 
     float derivative = error - lastError;
-    // Anti-windup: limita l'integrale per evitare overshoot (fix migl. #3)
     integral = constrain(integral + error, -INTEGRAL_CLAMP, INTEGRAL_CLAMP);
 
     float output = (error * config.kp_rot)
@@ -225,7 +245,8 @@ void rotate(float rel_deg) {
     delay(10);
   }
   stopMotors();
-  delay(100); // Assestamento meccanico
+  delay(100);
+  dbg("Rotazione OK  yaw=" + String(mpu.getAngleZ(), 1));
 }
 
 // ============================================================
@@ -233,16 +254,23 @@ void rotate(float rel_deg) {
 // ============================================================
 
 void scanSensors() {
-  // Forza una lettura fresca (ignora la cache)
   tof.ts = 0;
   updateToF();
 
   int c = getDetectedColor();
-
-  // Media dei due sensori laterali per decidere presenza muro
   int F = (tof.front <= SOGLIA_MURO_FRONT) ? 1 : 0;
   int R = (((tof.ra + tof.rp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
   int L = (((tof.la + tof.lp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
+
+  // Log su LCD: muri F/R/L e colore pavimento
+  const char* colori[] = {"NORM","GREY","REDD","BLUE","BLCK"};
+  String muri = "F:"; muri += F; muri += " R:"; muri += R; muri += " L:"; muri += L;
+  String pavimento = "Col:"; pavimento += colori[c];
+  lcdShow("SCAN " + muri, pavimento);
+
+  // Log debug su seriale
+  dbg("SCAN F:" + String(tof.front,1) + "cm R:" + String((tof.ra+tof.rp)/2,1)
+      + "cm L:" + String((tof.la+tof.lp)/2,1) + "cm Col:" + String(c));
 
   Serial.println("<DATA:" + String(c) + "," + String(F) + String(R) + String(L) + ">");
 }
@@ -252,12 +280,14 @@ void scanSensors() {
 // ============================================================
 
 void moveForward() {
+  lcdShow("AVANZAMENTO...", "");
+  dbg("Avanzamento iniziato");
+
   moveCounter  = 0;
   lastMoveTime = millis();
   float baseSpeed = 130;
   bool  rampMode  = false;
 
-  // Snapshot iniziale per stima distanza percorsa
   updateToF();
   float dF_start = tof.front;
   float dB_start = tof.back;
@@ -270,14 +300,22 @@ void moveForward() {
 
     // ---- Modalità rampa ----
     if (abs(pitch) > RAMP_PITCH_ENTER) {
+      if (!rampMode) {
+        bool salita = (pitch > 0);
+        lcdShow("RAMPA " + String(salita ? "SALITA" : "DISCESA"),
+                "Pitch:" + String(pitch, 1));
+        dbg("Rampa rilevata pitch=" + String(pitch, 1) + (salita ? " SALITA" : " DISCESA"));
+      }
       rampMode = true;
-      int power = (pitch > RAMP_PITCH_ENTER) ? 230 : 80; // Salita o discesa
+      int power = (pitch > RAMP_PITCH_ENTER) ? 230 : 80;
       setMotors(power, power);
       continue;
     }
 
     if (rampMode && abs(pitch) < RAMP_PITCH_EXIT) {
       stopMotors();
+      lcdShow("RAMPA OK", "2 celle avanzate");
+      dbg("Rampa completata pitch=" + String(pitch, 1));
       Serial.println("<MOVE:RAMP>");
       scanSensors();
       return;
@@ -290,12 +328,14 @@ void moveForward() {
 
     // Controllo cella nera
     if (getDetectedColor() == 4) {
-      // Arretra proporzionalmente al tempo percorso
+      lcdShow("CELLA NERA!", "Ritorno...");
+      dbg("Cella NERA rilevata! Retromarcia per " + String(moveCounter * 20) + "ms");
       setMotors(-150, -150);
       delay(moveCounter * 20);
       stopMotors();
+      lcdShow("CELLA NERA!", "Rientrato OK");
+      dbg("Rientro completato");
       Serial.println("<MOVE:BLACK>");
-      // fix #1: scanSensors() dopo il ritorno per sbloccare il Raspberry
       scanSensors();
       return;
     }
@@ -347,6 +387,8 @@ void moveForward() {
   }
 
   stopMotors();
+  dbg("Avanzamento OK  F:" + String(tof.front,1) + "cm cnt=" + String(moveCounter));
+  lcdShow("AVANZ. OK", "F:" + String(tof.front,1) + "cm");
   Serial.println("<MOVE:OK>");
   scanSensors();
 }
@@ -357,30 +399,36 @@ void moveForward() {
 
 void handleRescue(char pos, int tipo) {
   if (tipo < 1 || tipo > 3) {
-    // Tipo non valido: ignora ma completa il handshake
+    dbg("Rescue IGNORATO tipo=" + String(tipo));
     Serial.println("<VIC:DONE>");
     return;
   }
 
+  const char* gravita[] = {"", "ILLESA", "STABILE", "GRAVE"};
+  lcdShow("SOCCORSO " + String(pos), String(gravita[tipo]) + " " + String(tipo) + " kit");
+  dbg("Soccorso pos=" + String(pos) + " tipo=" + String(tipo)
+      + " (" + String(gravita[tipo]) + ")");
+
   digitalWrite(LED_STATUS, HIGH);
 
-  // Ruota verso la parete vittima
   if      (pos == 'R') rotate(-90);
   else if (pos == 'L') rotate( 90);
   else if (pos == 'F') rotate(180);
 
-  // Eroga kit (numero cicli = tipo)
   for (int i = 0; i < tipo; i++) {
+    lcdShow("EROGAZ. KIT", String(i+1) + "/" + String(tipo));
+    dbg("Erogo kit " + String(i+1) + "/" + String(tipo));
     medikitServo.write(0);   delay(1000);
     medikitServo.write(90);  delay(500);
   }
 
-  // Torna all'orientamento originale
+  lcdShow("RIENTRO ORI.", "");
   if      (pos == 'R') rotate( 90);
   else if (pos == 'L') rotate(-90);
   else if (pos == 'F') rotate(180);
 
   digitalWrite(LED_STATUS, LOW);
+  dbg("Soccorso completato");
   Serial.println("<VIC:DONE>");
 }
 
@@ -389,15 +437,21 @@ void handleRescue(char pos, int tipo) {
 // ============================================================
 
 void handleCommand(String cmd) {
+  dbg("CMD ricevuto: " + cmd);
+
   if (cmd == "SCAN:FRONT") {
+    lcdShow("SCAN FRONT", "Rotaz. -90deg");
+    dbg("Rotazione per scansione frontale");
     rotate(-90);
     Serial.println("<SCAN:OK>");
   }
   else if (cmd == "SCAN:DONE") {
+    lcdShow("SCAN DONE", "Rotaz. +90deg");
+    dbg("Ripristino orientamento post-scan");
     rotate(90);
   }
   else if (cmd == "VIC:DONE") {
-    // Raspberry ha terminato la lista vittime, conferma ricezione
+    dbg("Lista vittime ricevuta - nessuna vittima");
     Serial.println("<VIC:DONE>");
   }
   else if (cmd.startsWith("VIC:")) {
@@ -407,6 +461,9 @@ void handleCommand(String cmd) {
   }
   else if (cmd.startsWith("GO:")) {
     int d = cmd.substring(3).toInt();
+    const char* dirs[] = {"AVANTI","DESTRA","DIETRO","SINISTRA"};
+    lcdShow("GO: " + String(dirs[d]), "");
+    dbg("Movimento verso: " + String(dirs[d]));
     if      (d == 1) rotate( 90);
     else if (d == 2) rotate(180);
     else if (d == 3) rotate(-90);
@@ -414,9 +471,13 @@ void handleCommand(String cmd) {
   }
   else if (cmd.startsWith("WAIT:")) {
     int secs = cmd.substring(5).toInt();
-    lcd.clear(); lcd.print("ATTESA: "); lcd.print(secs); lcd.print("s");
+    lcdShow("CELLA BLU", "Attesa " + String(secs) + "s...");
+    dbg("Attesa cella BLU: " + String(secs) + "s");
     delay((long)secs * 1000);
-    lcd.clear(); lcd.print("mENIAC 2026");
+    lcdShow("mENIAC 2026", "RUNNING");
+  }
+  else {
+    dbg("CMD sconosciuto: " + cmd);
   }
 }
 
@@ -486,12 +547,15 @@ void loop() {
     delay(200);
     isRunning = !isRunning;
     if (isRunning) {
+      lcdShow("mENIAC 2026", "GARA INIZIATA!");
+      dbg("=== GARA INIZIATA ===");
       Serial.println("<INIT>");
       delay(100);
-      scanSensors(); // Invia subito i dati della cella iniziale
+      scanSensors();
     } else {
       stopMotors();
-      lcd.clear(); lcd.print("STOPPED");
+      lcdShow("mENIAC 2026", "STOPPED");
+      dbg("=== GARA FERMATA ===");
     }
     while (digitalRead(BTN_START) == LOW);
   }

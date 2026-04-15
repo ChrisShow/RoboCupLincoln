@@ -1,38 +1,43 @@
-/* 
+/*
  * Progetto: RoboCup Junior Rescue Maze 2026 - mENIAC Team
- * Descrizione: Codice Arduino Mega 2560 con Calibrazione EEPROM
+ * Descrizione: Firmware Arduino Mega 2560 — BACKUP SENZA MPU6050
+ *   - Rotazione open-loop: velocità motori + tempo calibrato
+ *   - Rilevazione rampa: contatore cicli (> RAMP_ENTER_CYCLES)
+ *   - Anti-drift ToF identico a main.ino
+ *   - Calibrazione EEPROM interattiva colori
+ *   - Cache letture ToF (TOF_REFRESH_MS)
+ *   - LCD + debug seriale [D] identici a main.ino
  */
 
 #include <Wire.h>
 #include <VL53L0X.h>
-#include <MPU6050_light.h>
 #include <LiquidCrystal_I2C.h>
 #include <Servo.h>
 #include <EEPROM.h>
 
 // --- PIN DEFINITIONS ---
-#define XSHUT_FRONT 30
-#define XSHUT_BACK  31
-#define XSHUT_DX_ANT 32
+#define XSHUT_FRONT   30
+#define XSHUT_BACK    31
+#define XSHUT_DX_ANT  32
 #define XSHUT_DX_POST 33
-#define XSHUT_SX_ANT 34
+#define XSHUT_SX_ANT  34
 #define XSHUT_SX_POST 35
 
-#define PWM_DX 2
-#define DX_IN1 22
-#define DX_IN2 23
-#define PWM_SX 3
-#define SX_IN1 24
-#define SX_IN2 25
+#define PWM_DX  2
+#define DX_IN1  22
+#define DX_IN2  23
+#define PWM_SX  3
+#define SX_IN1  24
+#define SX_IN2  25
 
-#define TCS_S0 38
-#define TCS_S1 39
-#define TCS_S2 40
-#define TCS_S3 41
+#define TCS_S0  38
+#define TCS_S1  39
+#define TCS_S2  40
+#define TCS_S3  41
 #define TCS_OUT 42
 
-#define SERVO_PIN 4
-#define BTN_START 43
+#define SERVO_PIN  4
+#define BTN_START  43
 #define LED_STATUS 45
 
 // --- STRUTTURE DATI ---
@@ -46,70 +51,113 @@ struct RobotConfig {
   ColorRGB red;
   ColorRGB blue;
   ColorRGB black;
-  float kp_rot, ki_rot, kd_rot; // Valori PID tarabili
-  long magic; // Identificativo per memoria valida
+  long magic;
 };
 
-// --- COSTANTI E GLOBALI ---
-const long MAGIC_VAL = 0xABCD1234;
+// Cache letture ToF: aggiornata ogni TOF_REFRESH_MS millisecondi
+struct ToFCache {
+  float front, back, ra, rp, la, lp;
+  unsigned long ts;
+};
+
+// --- COSTANTI GENERALI ---
+const long  MAGIC_VAL      = 0xABCD1234;
+const int   TOF_REFRESH_MS = 15;
+
+// ---------------------------------------------------------------
+// Soglie geometricamente derivate — robot 22cm, cella 30x30cm
+//
+//  Scocca 17×10cm. Centro rotazione: 8.5cm ant/post, 5.0cm lat.
+//  Front ToF  : 8.5cm avanti  → lettura muro frontale centrato = 15-8.5 = 6.5cm
+//  Rear ToF   : 8.5cm dietro  → lettura muro posteriore centrato = 6.5cm
+//  Side ToF   : 5.0cm laterale→ lettura muro laterale centrato  = 15-5.0 = 10.0cm
+//  Ruote      : 8.0cm laterale→ clearance muro centrato = 15-8.0 = 7.0cm
+//  Sens.colore: 12.5cm avanti → clearance muro frontale = 15-12.5 = 2.5cm
+// ---------------------------------------------------------------
+const float SOGLIA_MURO_FRONT   = 25.0;
+const float SOGLIA_MURO_LAT     = 18.0;
+const float TARGET_LAT_DIST     = 10.0;
+const float TARGET_FRONT_DIST   =  6.5;
+const float DIST_PERICOLO_RUOTA =  4.5;
+
+// ---------------------------------------------------------------
+// Costanti rotazione open-loop (TUNING: misura empiricamente)
+//   ROT_SPEED   : PWM applicato ai motori durante la rotazione
+//   ROT_90_MS   : ms per completare 90°
+//   ROT_180_MS  : ms per completare 180° (di solito ~2 × ROT_90_MS)
+//   ROT_SETTLE  : ms di pausa dopo stop rotazione per stabilizzarsi
+// ---------------------------------------------------------------
+const int ROT_SPEED  = 160;
+const int ROT_90_MS  = 450;
+const int ROT_180_MS = 880;
+const int ROT_SETTLE = 200;
+
+// ---------------------------------------------------------------
+// Costanti rilevazione rampa (senza pitch sensor)
+//   RAMP_ENTER_CYCLES: se il robot supera questo contatore senza
+//                      trigger muri, assume di essere su una rampa
+//   RAMP_EXIT_CYCLES : cicli massimi in rampa (60cm ≈ 185 tick da 20ms)
+//   RAMP_BOOST_PWM   : potenza motori in salita
+//   RAMP_BRAKE_PWM   : potenza motori in discesa
+//
+//   Nota: in discesa il robot supera RAMP_ENTER_CYCLES ma i ToF
+//   laterali restano stabili e il front ToF si avvicina come in
+//   piano → wallFront trigger fermera' normalmente.
+//   RAMP_BOOST serve per vincere la gravità in salita.
+// ---------------------------------------------------------------
+const int RAMP_ENTER_CYCLES = 90;   // ~1.8s = fine percorso normale
+const int RAMP_EXIT_CYCLES  = 185;  // ~3.7s = 60cm su rampa
+const int RAMP_BOOST_PWM    = 220;
+const int RAMP_BRAKE_PWM    =  80;
+
+// --- GLOBALI ---
 RobotConfig config;
+ToFCache    tof;
 
 VL53L0X sensors[6];
-int xshutPins[] = {XSHUT_FRONT, XSHUT_BACK, XSHUT_DX_ANT, XSHUT_DX_POST, XSHUT_SX_ANT, XSHUT_SX_POST};
-MPU6050 mpu(Wire);
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-Servo medikitServo;
+int xshutPins[] = {
+  XSHUT_FRONT, XSHUT_BACK,
+  XSHUT_DX_ANT, XSHUT_DX_POST,
+  XSHUT_SX_ANT, XSHUT_SX_POST
+};
 
-bool isRunning = false;
-int moveCounter = 0;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+Servo             medikitServo;
+
+bool          isRunning   = false;
+int           moveCounter = 0;
 unsigned long lastMoveTime = 0;
 
-// --- COSTANTI ROTAZIONE A TEMPO ---
-const int TURN_SPEED = 160;     // Velocità motori durante la rotazione
-const int TIME_90_DEG = 450;    // Millisecondi necessari per ruotare di 90°
-const int TIME_180_DEG = 850;   // Millisecondi necessari per ruotare di 180°
+// ============================================================
+//  SENSORE COLORE
+// ============================================================
 
-// --- SOGLIE ALGORITMO (Ricalibrate per 22cm) ---
-const float SOGLIA_MURO_FRONT = 25.0;  // Sopra i 25cm la cella davanti è considerata libera
-const float SOGLIA_MURO_LAT = 18.0;    // Sopra i 18cm il muro laterale è considerato assente
-const float TARGET_LAT_DIST = 10.0;    // Distanza ideale ToF-Muro per essere centrati (10cm)
-const float TARGET_FRONT_DIST = 6.0;   // Stop a 6cm dal ToF (= 2cm dal sensore colore)
-const float DIST_PERICOLO_RUOTA = 4.5; // Se il ToF legge meno di 4.5cm, la ruota sta per toccare!
-
-// --- FUNZIONI SENSORE COLORE ---
 void readRawColor(int &r, int &g, int &b) {
-  digitalWrite(TCS_S2, LOW); digitalWrite(TCS_S3, LOW); r = pulseIn(TCS_OUT, LOW);
-  digitalWrite(TCS_S2, HIGH); digitalWrite(TCS_S3, HIGH); g = pulseIn(TCS_OUT, LOW);
-  digitalWrite(TCS_S2, LOW); digitalWrite(TCS_S3, HIGH); b = pulseIn(TCS_OUT, LOW);
+  digitalWrite(TCS_S2, LOW);  digitalWrite(TCS_S3, LOW);  r = pulseIn(TCS_OUT, LOW, 20000);
+  digitalWrite(TCS_S2, HIGH); digitalWrite(TCS_S3, HIGH); g = pulseIn(TCS_OUT, LOW, 20000);
+  digitalWrite(TCS_S2, LOW);  digitalWrite(TCS_S3, HIGH); b = pulseIn(TCS_OUT, LOW, 20000);
 }
 
 void calibrateColors() {
   lcd.clear(); lcd.print("MODE: CALIBRA");
   delay(2000);
-  
-  const char* names[] = {"BIANCO/NORM", "GRIGIO/CHK", "ROSSO/DANGER", "BLU/DELAY", "NERO/TRAP"};
-  ColorRGB* targets[] = {&config.normal, &config.grey, &config.red, &config.blue, &config.black};
-  
-  for(int i=0; i<5; i++) {
-    lcd.clear(); lcd.print("POSIZIONA SU:");
-    lcd.setCursor(0,1); lcd.print(names[i]);
-    
-    while(digitalRead(BTN_START) == HIGH); // Aspetta pressione
+
+  const char* names[]   = {"BIANCO/NORM", "GRIGIO/CHK", "ROSSO/DANGER", "BLU/DELAY", "NERO/TRAP"};
+  ColorRGB*   targets[] = {&config.normal, &config.grey, &config.red, &config.blue, &config.black};
+
+  for (int i = 0; i < 5; i++) {
+    lcd.clear(); lcd.print("POSIZIONA SU:"); lcd.setCursor(0, 1); lcd.print(names[i]);
+    while (digitalRead(BTN_START) == HIGH);
     delay(500);
-    
     int r, g, b;
     readRawColor(r, g, b);
     targets[i]->r = r; targets[i]->g = g; targets[i]->b = b;
-    
     lcd.clear(); lcd.print("OK! RILASCIA");
-    while(digitalRead(BTN_START) == LOW); // Aspetta rilascio
+    while (digitalRead(BTN_START) == LOW);
     delay(500);
   }
-  
+
   config.magic = MAGIC_VAL;
-  // Impostiamo anche dei PID di default se è la prima volta
-  config.kp_rot = 4.5; config.ki_rot = 0.1; config.kd_rot = 1.2;
-  
   EEPROM.put(0, config);
   lcd.clear(); lcd.print("SALVATO!");
   delay(1000);
@@ -118,232 +166,387 @@ void calibrateColors() {
 int getDetectedColor() {
   int r, g, b;
   readRawColor(r, g, b);
-  // Castiamo a (long) per evitare l'overflow a 16-bit del Mega
-  long d_norm = sq((long)r - config.normal.r) + sq((long)g - config.normal.g) + sq((long)b - config.normal.b);
-  long d_grey = sq((long)r - config.grey.r)   + sq((long)g - config.grey.g)   + sq((long)b - config.grey.b);
-  long d_red  = sq((long)r - config.red.r)    + sq((long)g - config.red.g)    + sq((long)b - config.red.b);
-  long d_blue = sq((long)r - config.blue.r)   + sq((long)g - config.blue.g)   + sq((long)b - config.blue.b);
-  long d_black= sq((long)r - config.black.r)  + sq((long)g - config.black.g)  + sq((long)b - config.black.b);
+  long d_norm  = sq((long)r - config.normal.r) + sq((long)g - config.normal.g) + sq((long)b - config.normal.b);
+  long d_grey  = sq((long)r - config.grey.r)   + sq((long)g - config.grey.g)   + sq((long)b - config.grey.b);
+  long d_red   = sq((long)r - config.red.r)    + sq((long)g - config.red.g)    + sq((long)b - config.red.b);
+  long d_blue  = sq((long)r - config.blue.r)   + sq((long)g - config.blue.g)   + sq((long)b - config.blue.b);
+  long d_black = sq((long)r - config.black.r)  + sq((long)g - config.black.g)  + sq((long)b - config.black.b);
 
   long minDist = d_norm; int winner = 0;
-  if(d_grey < minDist) { minDist = d_grey; winner = 1; }
-  if(d_red < minDist)  { minDist = d_red;  winner = 2; }
-  if(d_blue < minDist) { minDist = d_blue; winner = 3; }
-  if(d_black < minDist){ minDist = d_black; winner = 4; }
-  
-  return winner; 
+  if (d_grey  < minDist) { minDist = d_grey;  winner = 1; }
+  if (d_red   < minDist) { minDist = d_red;   winner = 2; }
+  if (d_blue  < minDist) { minDist = d_blue;  winner = 3; }
+  if (d_black < minDist) {                    winner = 4; }
+  return winner;
 }
 
-// --- SETUP E LOOP ---
+// ============================================================
+//  CACHE ToF
+// ============================================================
+
+void updateToF() {
+  if (millis() - tof.ts < TOF_REFRESH_MS) return;
+  tof.front = sensors[0].readRangeContinuousMillimeters() / 10.0f;
+  tof.back  = sensors[1].readRangeContinuousMillimeters() / 10.0f;
+  tof.ra    = sensors[2].readRangeContinuousMillimeters() / 10.0f;
+  tof.rp    = sensors[3].readRangeContinuousMillimeters() / 10.0f;
+  tof.la    = sensors[4].readRangeContinuousMillimeters() / 10.0f;
+  tof.lp    = sensors[5].readRangeContinuousMillimeters() / 10.0f;
+  tof.ts    = millis();
+}
+
+// ============================================================
+//  MOTORI
+// ============================================================
+
+void setMotors(int l, int r) {
+  digitalWrite(SX_IN1, l < 0); digitalWrite(SX_IN2, l >= 0);
+  digitalWrite(DX_IN1, r < 0); digitalWrite(DX_IN2, r >= 0);
+  analogWrite(PWM_SX, abs(l));
+  analogWrite(PWM_DX, abs(r));
+}
+
+void stopMotors() { setMotors(0, 0); }
+
+// ============================================================
+//  LOGGING — LCD + Seriale debug
+// ============================================================
+
+void lcdShow(String line1, String line2 = "") {
+  lcd.clear();
+  lcd.setCursor(0, 0); lcd.print(line1.substring(0, 16));
+  lcd.setCursor(0, 1); lcd.print(line2.substring(0, 16));
+}
+
+void dbg(String msg) {
+  Serial.println("[D] " + msg);
+}
+
+// ============================================================
+//  ROTAZIONE OPEN-LOOP (velocità + tempo)
+// ============================================================
+
+void rotate(float rel_deg) {
+  if (rel_deg == 0) return;
+
+  bool  destra   = (rel_deg < 0);
+  float abs_deg  = abs(rel_deg);
+  int   duration = (abs_deg > 170) ? ROT_180_MS : ROT_90_MS;
+
+  String dirStr = destra ? ("-" + String((int)abs_deg) + "deg DX")
+                         : ("+" + String((int)abs_deg) + "deg SX");
+  lcdShow("ROTAZIONE", dirStr);
+  dbg("Rotazione " + dirStr + " durata=" + String(duration) + "ms");
+
+  if (destra) setMotors( ROT_SPEED, -ROT_SPEED);
+  else        setMotors(-ROT_SPEED,  ROT_SPEED);
+
+  delay(duration);
+  stopMotors();
+  delay(ROT_SETTLE);
+  dbg("Rotazione OK");
+}
+
+// ============================================================
+//  SCAN SENSORI → invia <DATA:> al Raspberry
+// ============================================================
+
+void scanSensors() {
+  tof.ts = 0;
+  updateToF();
+
+  int c = getDetectedColor();
+  int F = (tof.front <= SOGLIA_MURO_FRONT) ? 1 : 0;
+  int R = (((tof.ra + tof.rp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
+  int L = (((tof.la + tof.lp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
+
+  const char* colori[] = {"NORM","GREY","REDD","BLUE","BLCK"};
+  String muri = "F:"; muri += F; muri += " R:"; muri += R; muri += " L:"; muri += L;
+  lcdShow("SCAN " + muri, "Col:" + String(colori[c]));
+  dbg("SCAN F:" + String(tof.front,1) + "cm R:" + String((tof.ra+tof.rp)/2,1)
+      + "cm L:" + String((tof.la+tof.lp)/2,1) + "cm Col:" + String(c));
+
+  Serial.println("<DATA:" + String(c) + "," + String(F) + String(R) + String(L) + ">");
+}
+
+// ============================================================
+//  AVANZAMENTO con anti-drift angolare + rilevazione rampa a contatore
+// ============================================================
+
+void moveForward() {
+  lcdShow("AVANZAMENTO...", "");
+  dbg("Avanzamento iniziato");
+
+  moveCounter  = 0;
+  lastMoveTime = millis();
+  float baseSpeed = 130;
+  bool  rampMode  = false;
+
+  updateToF();
+  float dF_start = tof.front;
+  float dB_start = tof.back;
+  bool  wallFront = (dF_start < SOGLIA_MURO_FRONT);
+  bool  wallBack  = (dB_start < 15.0f);
+
+  while (true) {
+
+    // ---- Tick di controllo ogni 20ms ----
+    if (millis() - lastMoveTime < 20) continue;
+    lastMoveTime = millis();
+    moveCounter++;
+
+    // ---- Rilevazione rampa per contatore ----
+    // Superato il limite normale senza trigger muri → siamo su rampa
+    if (!rampMode && !wallFront && !wallBack && moveCounter >= RAMP_ENTER_CYCLES) {
+      rampMode = true;
+      lcdShow("RAMPA RILEVATA", "Boost ON");
+      dbg("Rampa rilevata per timeout cicli=" + String(moveCounter));
+    }
+
+    if (rampMode) {
+      // In salita: boost pieno.
+      // In discesa: il front ToF dovrebbe avvicinarsi — se wallFront si attiva,
+      // usciamo normalmente dalla rampa con MOVE:OK.
+      // Fail-safe rampa: se abbiamo percorso ~60cm (RAMP_EXIT_CYCLES) senza stop.
+      if (moveCounter >= RAMP_EXIT_CYCLES) {
+        stopMotors();
+        lcdShow("RAMPA OK", "2 celle avanzate");
+        dbg("Rampa completata cicli=" + String(moveCounter));
+        Serial.println("<MOVE:RAMP>");
+        scanSensors();
+        return;
+      }
+      // Potenza boost; anti-drift attivo anche in rampa
+      baseSpeed = RAMP_BOOST_PWM;
+    }
+
+    // ---- Controllo cella nera ----
+    if (getDetectedColor() == 4) {
+      lcdShow("CELLA NERA!", "Ritorno...");
+      dbg("Cella NERA! Retromarcia " + String(moveCounter * 20) + "ms");
+      setMotors(-150, -150);
+      delay(moveCounter * 20);
+      stopMotors();
+      lcdShow("CELLA NERA!", "Rientrato OK");
+      dbg("Rientro completato");
+      Serial.println("<MOVE:BLACK>");
+      scanSensors();
+      return;
+    }
+
+    // ---- Anti-drift con correzione angolare (identico a main.ino) ----
+    updateToF();
+    float ra = tof.ra, rp = tof.rp;
+    float la = tof.la, lp = tof.lp;
+
+    float drift = 0;
+    bool hasMuroR = (ra < SOGLIA_MURO_LAT);
+    bool hasMuroL = (la < SOGLIA_MURO_LAT);
+
+    if (hasMuroR && hasMuroL) {
+      float center_err = ra - la;
+      float angle_err  = (ra - rp) - (la - lp);
+      drift = center_err * 6.0f + angle_err * 4.0f;
+    } else if (hasMuroR) {
+      float angle_err = ra - rp;
+      drift = (ra - TARGET_LAT_DIST) * 10.0f + angle_err * 4.0f;
+    } else if (hasMuroL) {
+      float angle_err = lp - la;
+      drift = (TARGET_LAT_DIST - la) * 10.0f + angle_err * 4.0f;
+    }
+
+    if (ra < DIST_PERICOLO_RUOTA || rp < DIST_PERICOLO_RUOTA) drift = -60;
+    if (la < DIST_PERICOLO_RUOTA || lp < DIST_PERICOLO_RUOTA) drift =  60;
+
+    setMotors(baseSpeed + drift, baseSpeed - drift);
+
+    // ---- Condizioni di fine cella ----
+    float dF = tof.front;
+    float dB = tof.back;
+
+    if (!wallFront && dF < SOGLIA_MURO_FRONT) {
+      wallFront = true;
+    }
+
+    if (wallFront && dF <= TARGET_FRONT_DIST)         break;
+    if (wallBack  && dB >= (dB_start + 29.5f))        break;
+    // Nota: il fail-safe a 90 cicli è assorbito da RAMP_ENTER_CYCLES;
+    // qui non facciamo break ma entriamo in rampMode (vedi sopra).
+  }
+
+  stopMotors();
+  dbg("Avanzamento OK  F:" + String(tof.front,1) + "cm cnt=" + String(moveCounter));
+  lcdShow("AVANZ. OK", "F:" + String(tof.front,1) + "cm");
+  Serial.println("<MOVE:OK>");
+  scanSensors();
+}
+
+// ============================================================
+//  SOCCORSO FISICO
+// ============================================================
+
+void handleRescue(char pos, int tipo) {
+  if (tipo < 1 || tipo > 3) {
+    dbg("Rescue IGNORATO tipo=" + String(tipo));
+    Serial.println("<VIC:DONE>");
+    return;
+  }
+
+  const char* gravita[] = {"", "ILLESA", "STABILE", "GRAVE"};
+  lcdShow("SOCCORSO " + String(pos), String(gravita[tipo]) + " " + String(tipo) + " kit");
+  dbg("Soccorso pos=" + String(pos) + " tipo=" + String(tipo)
+      + " (" + String(gravita[tipo]) + ")");
+
+  digitalWrite(LED_STATUS, HIGH);
+
+  if      (pos == 'R') rotate(-90);
+  else if (pos == 'L') rotate( 90);
+  else if (pos == 'F') rotate(180);
+
+  for (int i = 0; i < tipo; i++) {
+    lcdShow("EROGAZ. KIT", String(i+1) + "/" + String(tipo));
+    dbg("Erogo kit " + String(i+1) + "/" + String(tipo));
+    medikitServo.write(0);  delay(1000);
+    medikitServo.write(90); delay(500);
+  }
+
+  lcdShow("RIENTRO ORI.", "");
+  if      (pos == 'R') rotate( 90);
+  else if (pos == 'L') rotate(-90);
+  else if (pos == 'F') rotate(180);
+
+  digitalWrite(LED_STATUS, LOW);
+  dbg("Soccorso completato");
+  Serial.println("<VIC:DONE>");
+}
+
+// ============================================================
+//  GESTIONE COMANDI SERIALI
+// ============================================================
+
+void handleCommand(String cmd) {
+  dbg("CMD ricevuto: " + cmd);
+
+  if (cmd == "SCAN:FRONT") {
+    lcdShow("SCAN FRONT", "Rotaz. -90deg");
+    dbg("Rotazione per scansione frontale");
+    rotate(-90);
+    Serial.println("<SCAN:OK>");
+  }
+  else if (cmd == "SCAN:DONE") {
+    lcdShow("SCAN DONE", "Rotaz. +90deg");
+    dbg("Ripristino orientamento post-scan");
+    rotate(90);
+  }
+  else if (cmd == "VIC:DONE") {
+    dbg("Nessuna vittima segnalata");
+    Serial.println("<VIC:DONE>");
+  }
+  else if (cmd.startsWith("VIC:")) {
+    char pos  = cmd.charAt(4);
+    int  tipo = cmd.substring(6).toInt();
+    handleRescue(pos, tipo);
+  }
+  else if (cmd.startsWith("GO:")) {
+    int d = cmd.substring(3).toInt();
+    const char* dirs[] = {"AVANTI","DESTRA","DIETRO","SINISTRA"};
+    lcdShow("GO: " + String(dirs[d]), "");
+    dbg("Movimento verso: " + String(dirs[d]));
+    if      (d == 1) rotate( 90);
+    else if (d == 2) rotate(180);
+    else if (d == 3) rotate(-90);
+    moveForward();
+  }
+  else if (cmd.startsWith("WAIT:")) {
+    int secs = cmd.substring(5).toInt();
+    lcdShow("CELLA BLU", "Attesa " + String(secs) + "s...");
+    dbg("Attesa cella BLU: " + String(secs) + "s");
+    delay((long)secs * 1000);
+    lcdShow("mENIAC 2026", "RUNNING");
+  }
+  else {
+    dbg("CMD sconosciuto: " + cmd);
+  }
+}
+
+// ============================================================
+//  SETUP
+// ============================================================
+
 void setup() {
   Serial.begin(115200);
   Wire.begin();
   lcd.init(); lcd.backlight();
-  
-  pinMode(BTN_START, INPUT_PULLUP);
+
+  pinMode(BTN_START,  INPUT_PULLUP);
   pinMode(LED_STATUS, OUTPUT);
   pinMode(DX_IN1, OUTPUT); pinMode(DX_IN2, OUTPUT);
   pinMode(SX_IN1, OUTPUT); pinMode(SX_IN2, OUTPUT);
   pinMode(TCS_S0, OUTPUT); pinMode(TCS_S1, OUTPUT);
   pinMode(TCS_S2, OUTPUT); pinMode(TCS_S3, OUTPUT);
   pinMode(TCS_OUT, INPUT);
-  digitalWrite(TCS_S0, HIGH); digitalWrite(TCS_S1, LOW); // 20% scaling
+  digitalWrite(TCS_S0, HIGH); digitalWrite(TCS_S1, LOW); // Scaling TCS3200 al 20%
 
   EEPROM.get(0, config);
-  
-  // Se tieni premuto il tasto all'avvio o la memoria è vuota -> CALIBRAZIONE
-  if(digitalRead(BTN_START) == LOW || config.magic != MAGIC_VAL) {
+  if (digitalRead(BTN_START) == LOW || config.magic != MAGIC_VAL) {
     calibrateColors();
   }
 
-  // Inizializzazione ToF
-  for(int i=0; i<6; i++) { pinMode(xshutPins[i], OUTPUT); digitalWrite(xshutPins[i], LOW); }
-  for(int i=0; i<6; i++) {
+  // Inizializzazione ToF (uno alla volta via XSHUT)
+  for (int i = 0; i < 6; i++) { pinMode(xshutPins[i], OUTPUT); digitalWrite(xshutPins[i], LOW); }
+  for (int i = 0; i < 6; i++) {
     digitalWrite(xshutPins[i], HIGH); delay(50);
-    if(sensors[i].init()) { sensors[i].setAddress(0x30 + i); sensors[i].startContinuous(); }
+    if (sensors[i].init()) {
+      sensors[i].setAddress(0x30 + i);
+      sensors[i].startContinuous();
+    } else {
+      lcd.clear(); lcd.print("ToF ERR: "); lcd.print(i);
+      delay(2000);
+    }
   }
-  
-  mpu.begin();
-  lcd.clear(); lcd.print("CALIBRATING MPU...");
-  mpu.calcOffsets();
-  
+
+  // Nessun MPU — skip calibrazione giroscopio
+  lcdShow("NO MPU MODE", "BACKUP FIRMWARE");
+  delay(1500);
+
   medikitServo.attach(SERVO_PIN);
   medikitServo.write(90);
 
+  tof.ts = 0;
+
   lcd.clear(); lcd.print("mENIAC 2026");
-  lcd.setCursor(0,1); lcd.print("READY TO START");
+  lcd.setCursor(0, 1); lcd.print("READY TO START");
 }
 
+// ============================================================
+//  LOOP PRINCIPALE
+// ============================================================
+
 void loop() {
-  mpu.update();
-  
+  updateToF();
+
   if (digitalRead(BTN_START) == LOW) {
     delay(200);
     isRunning = !isRunning;
-    if(isRunning) {
+    if (isRunning) {
+      lcdShow("mENIAC 2026", "GARA INIZIATA!");
+      dbg("=== GARA INIZIATA (NO MPU) ===");
       Serial.println("<INIT>");
-      delay(100); 
-      scanSensors(); 
-    }
-    else stopMotors();
-    while(digitalRead(BTN_START) == LOW);
-  }
-
-  if (isRunning) {
-    if (Serial.available()) {
-      String cmd = Serial.readStringUntil('>');
-      cmd.trim();
-      if (cmd.startsWith("<")) handleCommand(cmd.substring(1));
-    }
-  }
-}
-
-// --- LOGICA MOVIMENTO E COMANDI ---
-void handleCommand(String cmd) {
-  if(cmd == "SCAN:FRONT") { rotate(-90); Serial.println("<SCAN:OK>"); }
-  else if(cmd == "SCAN:DONE") rotate(90);
-  
-  // <-- AGGIUNGI QUESTA RIGA: Risponde subito a Python e bypassa i 5 secondi di delay!
-  else if(cmd == "VIC:DONE") Serial.println("<VIC:DONE>"); 
-  
-  else if(cmd.startsWith("VIC:")) handleRescue(cmd.charAt(4), cmd.substring(6).toInt());
-  else if(cmd.startsWith("GO:")) {
-    int d = cmd.substring(3).toInt();
-    if(d==1) rotate(90); else if(d==2) rotate(180); else if(d==3) rotate(-90);
-    moveForward();
-  }
-}
-
-void rotate(float rel_deg) {
-  if (rel_deg == 0) return;
-
-  int duration = 0;
-  float abs_deg = abs(rel_deg);
-
-  // Determina la durata in base all'angolo richiesto
-  if (abs_deg > 170) {
-    duration = TIME_180_DEG;
-  } else {
-    duration = TIME_90_DEG;
-  }
-
-  // Direzione: rel_deg positivo -> Sinistra, rel_deg negativo -> Destra
-  if (rel_deg > 0) {
-    setMotors(-TURN_SPEED, TURN_SPEED); // Ruota a sinistra
-  } else {
-    setMotors(TURN_SPEED, -TURN_SPEED); // Ruota a destra
-  }
-
-  delay(duration);
-  stopMotors();
-  
-  // Piccolo delay dopo la rotazione per stabilizzare il bot prima della mossa successiva
-  delay(200); 
-}
-
-void moveForward() {
-  moveCounter = 0; lastMoveTime = millis();
-  float baseSpeed = 130;
-  bool rampMode = false;
-  
-  float dF_start = sensors[0].readRangeContinuousMillimeters()/10.0;
-  float dB_start = sensors[1].readRangeContinuousMillimeters()/10.0;
-  
-  // Usiamo la nuova soglia di 25cm per capire se abbiamo un muro davanti
-  bool wallFront = (dF_start < SOGLIA_MURO_FRONT); 
-  bool wallBack = (dB_start < 15.0); // Leggermente alzata per sicurezza
-
-  while(true) {
-    mpu.update();
-    float pitch = mpu.getAngleY();
-
-    if (abs(pitch) > 15.0) {
-      rampMode = true;
-      int power = (pitch > 15.0) ? 230 : 80;
-      setMotors(power, power);
-    } else if (rampMode && abs(pitch) < 5.0) {
-      stopMotors();
-      Serial.println("<MOVE:RAMP>");
+      delay(100);
       scanSensors();
-      return;
     } else {
-      if (millis() - lastMoveTime >= 20) {
-        lastMoveTime = millis(); moveCounter++;
-        
-        if(getDetectedColor() == 4) { // NERO
-          setMotors(-150, -150); delay(moveCounter * 20);
-          stopMotors(); Serial.println("<MOVE:BLACK>"); return;
-        }
+      stopMotors();
+      lcdShow("mENIAC 2026", "STOPPED");
+      dbg("=== GARA FERMATA ===");
+    }
+    while (digitalRead(BTN_START) == LOW);
+  }
 
-        // --- ANTI-DRIFT RICALIBRATO ---
-        float dRA = sensors[2].readRangeContinuousMillimeters()/10.0;
-        float dRP = sensors[3].readRangeContinuousMillimeters()/10.0;
-        float dLA = sensors[4].readRangeContinuousMillimeters()/10.0;
-        float dLP = sensors[5].readRangeContinuousMillimeters()/10.0;
-        
-        float drift = 0;
-        // Caso 1: Corridoio stretto (muri da entrambi i lati) -> Resta al centro
-        if (dRA < SOGLIA_MURO_LAT && dLA < SOGLIA_MURO_LAT) {
-            drift = (dRA - dLA) * 8.0; 
-        } 
-        // Caso 2: Muro solo a destra -> Mantieni 10cm dal sensore (7cm dalle ruote)
-        else if (dRA < SOGLIA_MURO_LAT) {
-            drift = (dRA - TARGET_LAT_DIST) * 12.0;
-        }
-        // Caso 3: Muro solo a sinistra -> Mantieni 10cm dal sensore
-        else if (dLA < SOGLIA_MURO_LAT) {
-            drift = (TARGET_LAT_DIST - dLA) * 12.0;
-        }
-
-        // EMERGENZA RUOTE: Se i ToF leggono meno di 4.5cm, la ruota sta toccando!
-        if (dRA < DIST_PERICOLO_RUOTA || dRP < DIST_PERICOLO_RUOTA) drift = -50; 
-        if (dLA < DIST_PERICOLO_RUOTA || dLP < DIST_PERICOLO_RUOTA) drift = 50;
-
-        setMotors(baseSpeed + drift, baseSpeed - drift);
-
-        // --- CONDIZIONI DI FINE CELLA ---
-        float dF = sensors[0].readRangeContinuousMillimeters()/10.0;
-        float dB = sensors[1].readRangeContinuousMillimeters()/10.0;
-        
-        // 1. Muro frontale: fermati a 6cm (il sensore colore sarà a 2cm dal muro)
-        if(wallFront && dF <= TARGET_FRONT_DIST) break;
-        
-        // 2. Muro posteriore: se ti sei allontanato di 28cm (cella da 30cm)
-        if(wallBack && dB >= (dB_start + 28.0)) break; 
-        
-        // 3. Fail-safe: se non hai muri, fermati dopo circa 30cm di corsa
-        if(!wallFront && !wallBack && moveCounter >= 85) break; 
-      }
+  if (isRunning && Serial.available()) {
+    String cmd = Serial.readStringUntil('>');
+    cmd.trim();
+    if (cmd.startsWith("<")) {
+      handleCommand(cmd.substring(1));
     }
   }
-  stopMotors(); 
-  Serial.println("<MOVE:OK>"); 
-  scanSensors();
 }
-
-void scanSensors() {
-  int c = getDetectedColor();
-  int F = (sensors[0].readRangeContinuousMillimeters()/10.0 <= SOGLIA_MURO_FRONT);
-  int R = ((sensors[2].readRangeContinuousMillimeters() + sensors[3].readRangeContinuousMillimeters())/20.0 <= SOGLIA_MURO_LAT);
-  int L = ((sensors[4].readRangeContinuousMillimeters() + sensors[5].readRangeContinuousMillimeters())/20.0 <= SOGLIA_MURO_LAT);
-  Serial.println("<DATA:" + String(c) + "," + String(F) + String(R) + String(L) + ">");
-}
-
-void handleRescue(char pos, int type) {
-  digitalWrite(LED_STATUS, HIGH); delay(5000); digitalWrite(LED_STATUS, LOW);
-  if(type > 1) {
-    if(pos=='R') rotate(-90); else if(pos=='L') rotate(90); else if(pos=='F') rotate(180);
-    for(int i=0; i<type; i++) { medikitServo.write(0); delay(1000); medikitServo.write(90); delay(500); }
-    if(pos=='R') rotate(90); else if(pos=='L') rotate(-90); else if(pos=='F') rotate(180);
-  }
-  Serial.println("<VIC:DONE>");
-}
-
-void setMotors(int l, int r) {
-  // Logica Invertita via Software: l>=0 (Avanti) attiva LOW su IN1 e HIGH su IN2
-  digitalWrite(SX_IN1, l<0);  digitalWrite(SX_IN2, l>=0);
-  digitalWrite(DX_IN1, r<0);  digitalWrite(DX_IN2, r>=0);
-  analogWrite(PWM_SX, abs(l)); analogWrite(PWM_DX, abs(r));
-}
-
-void stopMotors() { setMotors(0, 0); }

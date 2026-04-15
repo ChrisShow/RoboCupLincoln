@@ -28,6 +28,13 @@ CAMERA_SETTLE_TIME = 0.3  # secondi
 
 # Costanti direzioni assolute
 NORD, EST, SUD, OVEST = 0, 1, 2, 3
+DIR_NOMI = {NORD: "NORD", EST: "EST", SUD: "SUD", OVEST: "OVEST"}
+COLORE_NOMI = {0: "NORMALE", 1: "GRIGIO(chk)", 2: "ROSSO(chk)", 3: "BLU(attesa)", 4: "NERO(trap)"}
+
+def log(categoria, msg):
+    """Stampa su terminale con timestamp e categoria."""
+    ts = time.strftime('%H:%M:%S')
+    print(f"[{ts}][{categoria}] {msg}")
 DIR_DX = [0, 1, 0, -1]   # Delta X per direzione N/E/S/O
 DIR_DY = [1, 0, -1, 0]   # Delta Y per direzione N/E/S/O
 
@@ -114,42 +121,49 @@ class VisionSystem:
         # mappa_tipi: nome_classe → TIPO kit (1=illesa, 2=stabile, 3=grave)
         self.mappa_tipi = {"PHI": 3, "PSI": 2, "OMEGA": 1}
 
-    def scan_wall(self, pos, frame):
+    def scan_wall(self, pos, cap, n_frames=3):
         """
-        Analizza un frame con YOLO.
-        Ritorna lista di tuple (tipo_kit, posizione) per le vittime trovate.
-        tipo_kit: 1=Illesa(Omega), 2=Stabile(Psi), 3=Grave(Phi), 0=Fake/nessuno
+        Cattura n_frames dalla camera, esegue inferenza YOLO su ognuno.
+        Ritorna la vittima con la confidenza più alta tra tutti i frame.
+        Usare più frame riduce i falsi negativi da motion blur residuo o luce sfavorevole.
         """
-        if self.model is None or frame is None:
+        if self.model is None or cap is None:
             return []
-
-        # Aggiunge padding verticale per rendere il frame più quadrato (migliora YOLO)
-        frame_quadrato = cv2.copyMakeBorder(
-            frame, 80, 80, 0, 0,
-            cv2.BORDER_CONSTANT, value=[0, 0, 0]
-        )
-
-        # fix #6: soglia confidenza minima passata direttamente a YOLO
-        results = self.model(frame_quadrato, imgsz=640, verbose=False, conf=VISION_CONF_THRESHOLD)
-        boxes = results[0].boxes
-        names = results[0].names
 
         target_scelto = None
         max_conf = 0.0
+        best_frame = None
 
-        for box in boxes:
-            cls_name = names[int(box.cls[0])]
-            conf = float(box.conf[0])
-            if cls_name in self.mappa_tipi and conf > max_conf:
-                max_conf = conf
-                target_scelto = cls_name
+        for i in range(n_frames):
+            # Scarta 1 frame stantio tra ogni scatto
+            cap.read()
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                continue
+
+            frame_quadrato = cv2.copyMakeBorder(
+                frame, 80, 80, 0, 0,
+                cv2.BORDER_CONSTANT, value=[0, 0, 0]
+            )
+            results = self.model(frame_quadrato, imgsz=640, verbose=False,
+                                 conf=VISION_CONF_THRESHOLD)
+
+            for box in results[0].boxes:
+                cls_name = results[0].names[int(box.cls[0])]
+                conf = float(box.conf[0])
+                if cls_name in self.mappa_tipi and conf > max_conf:
+                    max_conf = conf
+                    target_scelto = cls_name
+                    best_frame = frame
 
         if target_scelto:
             tipo = self.mappa_tipi[target_scelto]
-            print(f"[VISION] Rilevato {target_scelto} su parete {pos} — conf {max_conf*100:.1f}% — TIPO={tipo}")
-            if SAVE_FOR_TRAINING and SAVE_DIR:
+            print(f"[VISION] {target_scelto} su parete {pos} — "
+                  f"conf {max_conf*100:.1f}% su {n_frames} frame — TIPO={tipo}")
+            if SAVE_FOR_TRAINING and SAVE_DIR and best_frame is not None:
                 ts = int(time.time() * 1000)
-                cv2.imwrite(os.path.join(SAVE_DIR, f"{ts}_{pos}_{target_scelto}.jpg"), frame)
+                cv2.imwrite(os.path.join(SAVE_DIR,
+                            f"{ts}_{pos}_{target_scelto}.jpg"), best_frame)
             return [(tipo, pos)]
 
         return []
@@ -180,6 +194,25 @@ def flush_cameras(*caps, n=8):
     for _ in range(n):
         for cap in caps:
             cap.read()
+
+
+OPPOSTO = {0: 2, 1: 3, 2: 0, 3: 1}  # N↔S, E↔W
+
+def propaga_simmetria(robot):
+    """
+    Per ogni muro noto, scrive il muro speculare nella cella adiacente SE esiste.
+    Le celle fuori labirinto non vengono mai create in robot.map → nessun rischio bordi.
+    Esempio: cella (3,4) ha muro W → cella (2,4) ha muro E = stesso valore.
+    """
+    for (x, y), cell in robot.map.items():
+        for d, is_wall in enumerate(cell.walls):
+            if is_wall is None:
+                continue
+            nx = x + DIR_DX[d]
+            ny = y + DIR_DY[d]
+            neighbor = robot.map.get((nx, ny))
+            if neighbor is not None and neighbor.walls[OPPOSTO[d]] is None:
+                neighbor.walls[OPPOSTO[d]] = is_wall
 
 
 def find_nearest_unexplored(robot):
@@ -229,7 +262,7 @@ def get_next_move(robot):
         dy = target[1] - robot.y
         abs_dir = {(0, 1): NORD, (1, 0): EST, (0, -1): SUD, (-1, 0): OVEST}.get((dx, dy))
         if abs_dir is None:
-            print(f"[NAV] ERRORE: target non adiacente {curr} -> {target}")
+            log("ERR", f"Target non adiacente {curr} -> {target} — skip")
             return None, None
         return (abs_dir - robot.orientation) % 4, target
 
@@ -262,11 +295,11 @@ def get_next_move(robot):
     if path and len(path) > 1:
         robot.returning_home = True
         robot.dijkstra_path = path[1:]
-        print(f"[NAV] Esplorazione completata! Ritorno a casa via {len(robot.dijkstra_path)} celle.")
+        log("NAV", f"Esplorazione completata! Ritorno a casa via {len(robot.dijkstra_path)} celle.")
         return get_next_move(robot)
 
     if curr == (0, 0):
-        print("[NAV] Missione Compiuta! Robot alla cella di partenza.")
+        log("NAV", "Missione Compiuta! Robot alla cella di partenza.")
     return None, None
 
 
@@ -285,11 +318,14 @@ def main():
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     time.sleep(2)
-    # Svuota buffer seriale iniziale
     while comm.receive():
         pass
 
-    print("[SYSTEM] In attesa di <INIT> da Arduino...")
+    log("SYS", "Sistema pronto. In attesa di <INIT> da Arduino...")
+    log("SYS", f"Modello YOLO: {'caricato' if vision.model else 'NON TROVATO'}")
+    log("SYS", f"Camera SX: {'OK' if cap_sx.isOpened() else 'ERRORE'}")
+    log("SYS", f"Camera DX: {'OK' if cap_dx.isOpened() else 'ERRORE'}")
+    log("SYS", "Premi il tasto START su Arduino per iniziare.")
 
     while True:
         msg = comm.receive()
@@ -297,7 +333,12 @@ def main():
             time.sleep(0.01)
             continue
 
-        print(f"RX: {msg}")
+        # Messaggi di debug da Arduino (prefisso [D]) — stampa e vai avanti
+        if msg.startswith("[D]"):
+            log("ARD", msg[4:])
+            continue
+
+        log("COM", f"RX: {msg}")
 
         # ------------------------------------------------------------------ #
         #  INIT — Reset stato al premere del tasto START
@@ -311,7 +352,10 @@ def main():
             robot.dijkstra_path = []
             robot.checkpoints = set()
             robot.no_transit = set()
-            print("[NAV] Gara Iniziata. Mappa resettata.")
+            log("NAV", "="*40)
+            log("NAV", "GARA INIZIATA — mappa resettata")
+            log("NAV", "Posizione: (0,0)  Orientamento: NORD")
+            log("NAV", "="*40)
 
         # ------------------------------------------------------------------ #
         #  DATA — Ricezione muri + colore, visione, calcolo prossima mossa
@@ -329,118 +373,145 @@ def main():
             cell.color = c
             robot.visited.add(curr)
 
-            # Scrivi i muri in coordinate assolute
-            cell.walls[robot.orientation]           = (f == 1)  # Muro davanti
-            cell.walls[(robot.orientation + 1) % 4] = (r == 1)  # Muro a destra
-            cell.walls[(robot.orientation + 3) % 4] = (l == 1)  # Muro a sinistra
-            # Direzione da cui siamo arrivati: sicuramente non c'è muro
+            cell.walls[robot.orientation]           = (f == 1)
+            cell.walls[(robot.orientation + 1) % 4] = (r == 1)
+            cell.walls[(robot.orientation + 3) % 4] = (l == 1)
             cell.walls[(robot.orientation + 2) % 4] = False
+            propaga_simmetria(robot)
 
-            # fix #2: gestione colori speciali
-            if c == 3:  # BLU → attendi 5s, poi blocca: non ci si può più passare
-                print(f"[NAV] Cella BLU a {curr} — attesa 5s, poi bloccata come nera")
+            muri_str = f"F:{'SI' if f else 'NO'} R:{'SI' if r else 'NO'} L:{'SI' if l else 'NO'}"
+            log("NAV", f"--- Cella {curr} | Ori: {DIR_NOMI[robot.orientation]} | {muri_str} | Pavimento: {COLORE_NOMI.get(c,'?')} ---")
+            log("NAV", f"Celle esplorate: {len(robot.visited)}  Stack DFS: {len(robot.stack)}")
+
+            if c == 3:
+                log("NAV", f"Cella BLU rilevata — attesa 5s obbligatoria, poi bloccata")
                 comm.send("<WAIT:5>")
                 time.sleep(5.5)
-                robot.no_transit.add(curr)  # Da ora in poi = inaccessibile
-            elif c == 1:  # GRIGIO → checkpoint di gara
+                robot.no_transit.add(curr)
+                log("NAV", f"Cella BLU {curr} bloccata — non transitabile in futuro")
+            elif c == 1:
                 robot.checkpoints.add(curr)
-                print(f"[NAV] Checkpoint GRIGIO a {curr}")
-            elif c == 2:  # ROSSO → checkpoint di gara (danger zone)
+                log("NAV", f"Checkpoint GRIGIO salvato a {curr}  (tot checkpoints: {len(robot.checkpoints)})")
+            elif c == 2:
                 robot.checkpoints.add(curr)
-                print(f"[NAV] Checkpoint ROSSO a {curr}")
+                log("NAV", f"Checkpoint ROSSO salvato a {curr}  (tot checkpoints: {len(robot.checkpoints)})")
 
-            # fix #3 + fix #7: svuota buffer camere e lascia stabilizzare AWB
+            # Scansione visiva pareti
+            pareti_da_scansionare = []
+            if r == 1: pareti_da_scansionare.append('R')
+            if l == 1: pareti_da_scansionare.append('L')
+            if f == 1: pareti_da_scansionare.append('F')
+
+            if pareti_da_scansionare:
+                log("VIS", f"Scansione pareti: {', '.join(pareti_da_scansionare)}")
+            else:
+                log("VIS", "Nessuna parete — skip visione")
+
             flush_cameras(cap_sx, cap_dx, n=8)
             time.sleep(CAMERA_SETTLE_TIME)
 
-            # Acquisisci frame laterali
-            _, frame_r = cap_dx.read()
-            _, frame_l = cap_sx.read()
-
-            # Scansione vittime
             vittime = []
             if r == 1:
-                vittime.extend(vision.scan_wall('R', frame_r))
+                log("VIS", "Scansione parete DESTRA (3 frame)...")
+                vittime.extend(vision.scan_wall('R', cap_dx))
             if l == 1:
-                vittime.extend(vision.scan_wall('L', frame_l))
+                log("VIS", "Scansione parete SINISTRA (3 frame)...")
+                vittime.extend(vision.scan_wall('L', cap_sx))
 
-            # Scansione muro frontale: Arduino ruota 90° per portarlo di lato
             if f == 1:
+                log("VIS", "Scansione parete FRONTALE — richiedo rotazione Arduino")
                 comm.send("<SCAN:FRONT>")
                 while True:
                     m = comm.receive()
                     if m == "<SCAN:OK>":
                         break
+                    if m and m.startswith("[D]"):
+                        log("ARD", m[4:])
                     time.sleep(0.01)
-                # Svuota buffer e stabilizza dopo la rotazione
+                log("VIS", "Rotazione OK — scansione frontale (3 frame)...")
                 flush_cameras(cap_dx, n=5)
                 time.sleep(CAMERA_SETTLE_TIME)
-                _, frame_f = cap_dx.read()
-                vittime.extend(vision.scan_wall('F', frame_f))
+                vittime.extend(vision.scan_wall('F', cap_dx))
                 comm.send("<SCAN:DONE>")
 
-            # Invia comandi di soccorso all'Arduino
+            if vittime:
+                log("VIS", f"Vittime trovate: {len(vittime)}")
+                for v_tipo, v_pos in vittime:
+                    TIPI = {1: "ILLESA(Omega)", 2: "STABILE(Psi)", 3: "GRAVE(Phi)"}
+                    log("VIS", f"  → Parete {v_pos}: {TIPI.get(v_tipo, '?')} (tipo {v_tipo})")
+            else:
+                log("VIS", "Nessuna vittima rilevata")
+
             for v_tipo, v_pos in vittime:
                 comm.send(f"<VIC:{v_pos},{v_tipo}>")
 
-            # Segnala fine lista vittime; Arduino risponderà con <VIC:DONE>
             comm.send("<VIC:DONE>")
             while True:
                 m = comm.receive()
                 if m == "<VIC:DONE>":
                     break
+                if m and m.startswith("[D]"):
+                    log("ARD", m[4:])
                 time.sleep(0.01)
 
+            if vittime:
+                log("VIS", "Soccorso completato da Arduino")
+
             # Calcola e invia prossima mossa
+            DIRS = {0: "AVANTI", 1: "DESTRA", 2: "DIETRO", 3: "SINISTRA"}
             rel_dir, target = get_next_move(robot)
             if rel_dir is not None:
                 robot.last_move = rel_dir
+                fase = "RITORNO" if robot.returning_home else "ESPLORA"
+                log("NAV", f"[{fase}] GO:{DIRS[rel_dir]} → {target}  "
+                           f"(celle esplorate: {len(robot.visited)})")
                 comm.send(f"<GO:{rel_dir}>")
-                print(f"[NAV] ({robot.x},{robot.y}) ori={robot.orientation} → GO:{rel_dir} verso {target}")
             else:
-                print("[NAV] Nessuna mossa disponibile — missione completata.")
+                log("NAV", "="*40)
+                log("NAV", "MISSIONE COMPLETATA")
+                log("NAV", f"Celle totali esplorate: {len(robot.visited)}")
+                log("NAV", f"Vittime totali trovate: (vedi log VIS)")
+                log("NAV", "="*40)
 
         # ------------------------------------------------------------------ #
         #  MOVE:OK — Avanzamento normale completato
         # ------------------------------------------------------------------ #
         elif msg == "<MOVE:OK>":
             robot.update_position(steps=1)
-            print(f"[NAV] Pos: ({robot.x}, {robot.y})  Ori: {robot.orientation}")
+            log("NAV", f"Avanzamento OK → pos ({robot.x},{robot.y})  "
+                       f"ori {DIR_NOMI[robot.orientation]}")
 
         # ------------------------------------------------------------------ #
         #  MOVE:RAMP — Rampa superata (avanza 2 celle)
         # ------------------------------------------------------------------ #
         elif msg == "<MOVE:RAMP>":
             robot.update_position(steps=2)
-            print(f"[NAV] RAMPA superata! Pos: ({robot.x}, {robot.y})")
+            log("NAV", f"RAMPA superata (+2 celle) → pos ({robot.x},{robot.y})  "
+                       f"ori {DIR_NOMI[robot.orientation]}")
 
         # ------------------------------------------------------------------ #
-        #  MOVE:BLACK — Cella nera rilevata, robot tornato indietro (fix #1)
+        #  MOVE:BLACK — Cella nera rilevata, robot tornato indietro
         # ------------------------------------------------------------------ #
         elif msg == "<MOVE:BLACK>":
             curr = (robot.x, robot.y)
-            # Marca la direzione tentata come inaccessibile (tratta come muro)
             abs_d = (robot.orientation + robot.last_move) % 4
             if curr in robot.map:
                 robot.map[curr].walls[abs_d] = True
-                print(f"[NAV] Cella NERA in dir {abs_d} da {curr} — marcata come muro")
-            # Se avevamo pushato questa cella sullo stack per esplorare la nera, rimuovila
             if robot.stack and robot.stack[-1] == curr:
                 robot.stack.pop()
-            # Arduino ha già chiamato scanSensors() → arriverà un nuovo <DATA:>
+            log("NAV", f"CELLA NERA bloccata — dir {DIR_NOMI[abs_d]} da {curr} "
+                       f"marcata come muro")
 
         # ------------------------------------------------------------------ #
         #  LOP — Lack of Progress: il giudice ha spostato il robot (fix migl. #2)
         # ------------------------------------------------------------------ #
         elif msg == "<LOP>":
-            print("[NAV] LOP ricevuto! Robot spostato manualmente.")
-            # Conserva la mappa ma resetta lo stato di navigazione
-            # Il robot verrà posizionato su una cella nota dal giudice
+            log("NAV", "!!! LACK OF PROGRESS — robot spostato dal giudice !!!")
+            log("NAV", f"Mappa conservata ({len(robot.visited)} celle). Reset stato navigazione.")
             robot.stack.clear()
             robot.returning_home = False
             robot.dijkstra_path = []
-            # Arduino invierà un nuovo <DATA:> per resincronizzarsi
-            print("[NAV] Stack DFS resettato. Attendo nuovo <DATA:> per riallinearmi.")
+            log("NAV", "Stack DFS resettato. Attendo <DATA:> per riallinearmi.")
 
 
 if __name__ == "__main__":
