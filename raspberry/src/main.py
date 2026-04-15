@@ -75,54 +75,46 @@ class Robot:
 
 class VisionSystem:
     def __init__(self):
-        model_path = os.path.join(os.path.dirname(__file__), 'vision', 'model_v2', 'runs', 'detect', 'train', 'weights', 'best.pt')
+        # Path al modello v3 (No Cognitive)
+        model_path = os.path.join(os.path.dirname(__file__), 'vision', 'model_v3', 'runs', 'detect', 'train', 'weights', 'best.pt')
         self.model = None
         if os.path.exists(model_path):
             self.model = YOLO(model_path)
-            print(f"[VISION] YOLO Modello V2 caricato.")
-        self.cl_map = {0:(3,10), 1:(1,10), 2:(2,10), 3:("COG",5), 4:(0,0), 5:(0,0)}
+            print(f"[VISION] YOLO Modello V3 caricato correttamente.")
+        
+        # Mappatura classi v3: 0:FAKE, 1:OMEGA, 2:PHI, 3:PSI
+        # ID: (Tipo_Soccorso, Priorità)
+        self.cl_map = {
+            0: (0, 0),  # FAKE -> Ignora
+            1: (1, 10), # OMEGA -> Tipo 1
+            2: (3, 10), # PHI -> Tipo 3
+            3: (2, 10)  # PSI -> Tipo 2
+        }
 
     def scan_wall(self, side, frame):
+        """Analizza il fotogramma cercando solo le lettere greche (PHI, PSI, OMEGA)."""
         if frame is None or self.model is None: return []
+        
         results = self.model.predict(frame, imgsz=640, conf=0.5, verbose=False)
         candidati = []
+
         for r in results:
             for box in r.boxes:
                 cls_id = int(box.cls[0])
                 conf = float(box.conf[0])
                 res_tipo, priorita = self.cl_map.get(cls_id, (0, 0))
-                if priorita == 10: candidati.append({'tipo': res_tipo, 'prio': priorita, 'conf': conf})
-                elif res_tipo == "COG":
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    crop = frame[y1:y2, x1:x2]
-                    tipo_mat = self._analizza_cognitive(crop)
-                    if tipo_mat > 0: candidati.append({'tipo': tipo_mat, 'prio': priorita, 'conf': conf})
-        if not candidati: return []
-        candidati.sort(key=lambda x: (x['prio'], x['conf']), reverse=True)
-        return [(candidati[0]['tipo'], side)]
 
-    def _analizza_cognitive(self, crop):
-        if crop.size == 0: return 0
-        h, w = crop.shape[:2]
-        hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-        cx, cy = w // 2, h // 2
-        r_w, r_h = (w//2)*0.9, (h//2)*0.9
-        somma, trovati = 0, 0
-        for i in range(5):
-            scale = (i + 0.5) / 5.0
-            voti = []
-            for a in range(0, 360, 20):
-                px, py = int(cx + (r_w*scale)*np.cos(np.radians(a))), int(cy + (r_h*scale)*np.sin(np.radians(a)))
-                if 0<=py<h and 0<=px<w:
-                    h_val, s_val, v_val = hsv[py, px]
-                    for n, rs in COLORI_HSV.items():
-                        for (l, u) in rs:
-                            if l[0]<=h_val<=u[0] and l[1]<=s_val<=u[1] and l[2]<=v_val<=u[2]:
-                                voti.append(n); break
-            if voti:
-                c_dom = max(set(voti), key=voti.count)
-                if voti.count(c_dom) > (len(voti)*0.6): somma += VALORI_MATEMATICI[c_dom]; trovati += 1
-        return MAPPATURA_SOMMA.get(somma, 0) if trovati == 5 else 0
+                if priorita == 10: # È una lettera greca valida (1, 2 o 3)
+                    candidati.append({'tipo': res_tipo, 'conf': conf})
+
+        if not candidati: return []
+
+        # Sceglie la rilevazione con la confidenza più alta
+        candidati.sort(key=lambda x: x['conf'], reverse=True)
+        vincitore = candidati[0]
+        
+        print(f"[VISION] Rilevata vittima Tipo {vincitore['tipo']} su lato {side}")
+        return [(vincitore['tipo'], side)]
 
 class Comm:
     def __init__(self):
