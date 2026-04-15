@@ -112,12 +112,12 @@ void calibrateColors() {
 int getDetectedColor() {
   int r, g, b;
   readRawColor(r, g, b);
-  
-  long d_norm = sq(r - config.normal.r) + sq(g - config.normal.g) + sq(b - config.normal.b);
-  long d_grey = sq(r - config.grey.r) + sq(g - config.grey.g) + sq(b - config.grey.b);
-  long d_red  = sq(r - config.red.r) + sq(g - config.red.g) + sq(b - config.red.b);
-  long d_blue = sq(r - config.blue.r) + sq(g - config.blue.g) + sq(b - config.blue.b);
-  long d_black= sq(r - config.black.r) + sq(g - config.black.g) + sq(b - config.black.b);
+  // Castiamo a (long) per evitare l'overflow a 16-bit del Mega
+  long d_norm = sq((long)r - config.normal.r) + sq((long)g - config.normal.g) + sq((long)b - config.normal.b);
+  long d_grey = sq((long)r - config.grey.r)   + sq((long)g - config.grey.g)   + sq((long)b - config.grey.b);
+  long d_red  = sq((long)r - config.red.r)    + sq((long)g - config.red.g)    + sq((long)b - config.red.b);
+  long d_blue = sq((long)r - config.blue.r)   + sq((long)g - config.blue.g)   + sq((long)b - config.blue.b);
+  long d_black= sq((long)r - config.black.r)  + sq((long)g - config.black.g)  + sq((long)b - config.black.b);
   
   long minDist = d_norm; int winner = 0;
   if(d_grey < minDist) { minDist = d_grey; winner = 1; }

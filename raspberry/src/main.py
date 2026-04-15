@@ -122,9 +122,9 @@ class VisionSystem:
         vittime = []
         # Se abbiamo trovato un target valido, mappiamo i kit (modificate i numeri in base al regolamento 2026)
         if target_scelto:
-            mappa_kit = {"PHI": 1, "OMEGA": 1, "PSI": 1} 
-            num_kit = mappa_kit[target_scelto]
-            vittime.append((num_kit, pos)) # Formato (type/kit, pos) per l'Arduino
+            mappa_tipi = {"PHI": 2, "OMEGA": 1, "PSI": 3} 
+            tipo_vittima = mappa_tipi[target_scelto]
+            vittime.append((tipo_vittima, pos)) # Formato (type/kit, pos) per l'Arduino
             print(f"🎯 Rilevato {target_scelto} a {pos} con {max_conf*100:.1f}%")
             
         return vittime
