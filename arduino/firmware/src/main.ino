@@ -80,7 +80,7 @@ const float SOGLIA_MURO_LAT      = 18.0;  // cm — discrimina muro(10) da apert
 const float TARGET_LAT_DIST      = 10.0;  // cm — distanza ideale ToF laterale ↔ muro
 const float TARGET_FRONT_DIST    =  6.5;  // cm — stop al centro cella (15-8.5=6.5)
 const float DIST_PERICOLO_RUOTA  =  4.5;  // cm — ruota a 1.5cm dal muro (contatto a 3cm)
-const int   BASE_SPEED           = 130;   // PWM velocità di crociera (costante)
+const int   BASE_SPEED           =  90;   // PWM velocità di crociera (costante)
 
 // Guadagni PID rotazione (sovrascrivibili via EEPROM)
 const float KP_ROT_DEFAULT = 4.5;
@@ -304,43 +304,49 @@ void moveForward() {
   bool  wallFront = (dF_start < SOGLIA_MURO_FRONT);
   bool  wallBack  = (dB_start < 15.0f);
 
+  // Avvio motori immediatamente — il loop aggiusta il drift ogni 20ms
+  setMotors(BASE_SPEED, BASE_SPEED);
+  unsigned long moveStart = millis();
+
   while (true) {
-    mpu.update();
 
-    // ---- Tick di controllo ogni 20ms ----
-    if (millis() - lastMoveTime < 20) continue;
-    lastMoveTime = millis();
-    moveCounter++;
-
-    // Controllo cella nera
+    // ---- Cella nera: controllo continuo, non vincolato al tick ----
+    // Il sensore colore è 12.5cm avanti → rileva la cella successiva
+    // appena il robot inizia a spostarsi. La retromarcia usa lo stesso
+    // tempo trascorso in avanzamento così la distanza percorsa è identica.
     if (getDetectedColor() == 4) {
-      lcdShow("CELLA NERA!", "Ritorno...");
-      dbg("Cella NERA rilevata! Retromarcia per " + String(moveCounter * 20) + "ms");
-      setMotors(-150, -150);
-      delay(moveCounter * 20);
       stopMotors();
-      lcdShow("CELLA NERA!", "Rientrato OK");
+      unsigned long elapsed = millis() - moveStart;
+      lcdShow("CELLA NERA!", "Ritorno...");
+      dbg("Cella NERA! Retromarcia " + String(elapsed) + "ms");
+      setMotors(-BASE_SPEED, -BASE_SPEED);
+      delay(elapsed);
+      stopMotors();
+      lcdShow("CELLA NERA", "Rientrato OK");
       dbg("Rientro completato");
       Serial.println("<MOVE:BLACK>");
       scanSensors();
       return;
     }
 
-    // ---- Lettura sensori laterali (via cache) ----
+    // ---- Tick di controllo ogni 20ms (anti-drift + fine cella) ----
+    if (millis() - lastMoveTime < 20) continue;
+    lastMoveTime = millis();
+    moveCounter++;
+
+    mpu.update();
+
     updateToF();
     float ra = tof.ra, rp = tof.rp;
     float la = tof.la, lp = tof.lp;
 
     float drift = 0;
-
-    // fix migl. #5: anti-drift con correzione sia centratura che angolazione
     bool hasMuroR = (ra < SOGLIA_MURO_LAT);
     bool hasMuroL = (la < SOGLIA_MURO_LAT);
 
     if (hasMuroR && hasMuroL) {
-      // Corridoio stretto: centra + raddrizza
-      float center_err = ra - la;                         // Errore di centratura
-      float angle_err  = (ra - rp) - (la - lp);          // Errore di angolazione
+      float center_err = ra - la;
+      float angle_err  = (ra - rp) - (la - lp);
       drift = center_err * 6.0f + angle_err * 4.0f;
     } else if (hasMuroR) {
       float angle_err = ra - rp;
@@ -350,7 +356,6 @@ void moveForward() {
       drift = (TARGET_LAT_DIST - la) * 10.0f + angle_err * 4.0f;
     }
 
-    // Emergenza contatto ruota
     if (ra < DIST_PERICOLO_RUOTA || rp < DIST_PERICOLO_RUOTA) drift = -60;
     if (la < DIST_PERICOLO_RUOTA || lp < DIST_PERICOLO_RUOTA) drift =  60;
 
@@ -360,16 +365,10 @@ void moveForward() {
     float dF = tof.front;
     float dB = tof.back;
 
-    // Rilevazione dinamica muro frontale:
-    // All'avvio dF_start = 36.5cm (muro in fondo alla cella successiva) → wallFront=false.
-    // Durante il movimento dF scende; quando entra nel range lo iniziamo a tracciare.
-    if (!wallFront && dF < SOGLIA_MURO_FRONT) {
-      wallFront = true;  // Muro entrato nel range → ora tracciamo la distanza
-    }
-
-    if (wallFront && dF <= TARGET_FRONT_DIST)          break; // Centro cella: ToF=6.5cm
-    if (wallBack  && dB >= (dB_start + 29.5f))         break; // Muro post: percorsi ~29.5cm
-    if (!wallFront && !wallBack && moveCounter >= 90)  break; // Fail-safe ~30cm
+    if (!wallFront && dF < SOGLIA_MURO_FRONT) wallFront = true;
+    if (wallFront && dF <= TARGET_FRONT_DIST)          break;
+    if (wallBack  && dB >= (dB_start + 29.5f))         break;
+    if (!wallFront && !wallBack && moveCounter >= 90)  break;
   }
 
   stopMotors();

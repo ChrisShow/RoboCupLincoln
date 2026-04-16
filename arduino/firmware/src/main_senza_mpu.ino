@@ -88,8 +88,8 @@ const int ROT_90_MS  = 450;
 const int ROT_180_MS = 880;
 const int ROT_SETTLE = 200;
 
-// Velocità di crociera costante (rampa rimossa)
-const int BASE_SPEED = 130;
+// Velocità di crociera costante
+const int BASE_SPEED = 90;
 
 // ---------------------------------------------------------------
 // Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
@@ -262,7 +262,7 @@ void scanSensors() {
 }
 
 // ============================================================
-//  AVANZAMENTO con anti-drift angolare + rilevamento rampa a contatore
+//  AVANZAMENTO con anti-drift angolare
 // ============================================================
 
 void moveForward() {
@@ -278,28 +278,36 @@ void moveForward() {
   bool  wallFront = (dF_start < SOGLIA_MURO_FRONT);
   bool  wallBack  = (dB_start < 15.0f);
 
+  // Avvio motori immediatamente — il loop aggiusta il drift ogni 20ms
+  setMotors(BASE_SPEED, BASE_SPEED);
+  unsigned long moveStart = millis();
+
   while (true) {
 
-    // ---- Tick di controllo ogni 20ms ----
-    if (millis() - lastMoveTime < 20) continue;
-    lastMoveTime = millis();
-    moveCounter++;
-
-    // ---- Controllo cella nera ----
+    // ---- Cella nera: controllo continuo, non vincolato al tick ----
+    // Il sensore colore è 12.5cm avanti → rileva la cella successiva
+    // appena il robot inizia a spostarsi. La retromarcia usa lo stesso
+    // tempo trascorso in avanzamento così la distanza percorsa è identica.
     if (getDetectedColor() == 4) {
-      lcdShow("CELLA NERA!", "Ritorno...");
-      dbg("Cella NERA! Retromarcia " + String(moveCounter * 20) + "ms");
-      setMotors(-150, -150);
-      delay(moveCounter * 20);
       stopMotors();
-      lcdShow("CELLA NERA!", "Rientrato OK");
+      unsigned long elapsed = millis() - moveStart;
+      lcdShow("CELLA NERA!", "Ritorno...");
+      dbg("Cella NERA! Retromarcia " + String(elapsed) + "ms");
+      setMotors(-BASE_SPEED, -BASE_SPEED);
+      delay(elapsed);
+      stopMotors();
+      lcdShow("CELLA NERA", "Rientrato OK");
       dbg("Rientro completato");
       Serial.println("<MOVE:BLACK>");
       scanSensors();
       return;
     }
 
-    // ---- Anti-drift con correzione angolare ----
+    // ---- Tick di controllo ogni 20ms (anti-drift + fine cella) ----
+    if (millis() - lastMoveTime < 20) continue;
+    lastMoveTime = millis();
+    moveCounter++;
+
     updateToF();
     float ra = tof.ra, rp = tof.rp;
     float la = tof.la, lp = tof.lp;
@@ -329,13 +337,10 @@ void moveForward() {
     float dF = tof.front;
     float dB = tof.back;
 
-    if (!wallFront && dF < SOGLIA_MURO_FRONT) {
-      wallFront = true;
-    }
-
-    if (wallFront && dF <= TARGET_FRONT_DIST)       break;
-    if (wallBack  && dB >= (dB_start + 29.5f))      break;
-    if (!wallFront && !wallBack && moveCounter >= 90) break; // Fail-safe ~30cm
+    if (!wallFront && dF < SOGLIA_MURO_FRONT) wallFront = true;
+    if (wallFront && dF <= TARGET_FRONT_DIST)          break;
+    if (wallBack  && dB >= (dB_start + 29.5f))         break;
+    if (!wallFront && !wallBack && moveCounter >= 90)  break;
   }
 
   stopMotors();
