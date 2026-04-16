@@ -110,8 +110,14 @@ const int          STOP_CONFIRM      =    2;
 
 // ---------------------------------------------------------------
 // Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
+//   SERVO_STEP       : gradi per ogni medikit (fisso)
+//   SERVO_SLOW_MS    : ms per grado in modalità erogazione lenta
+//   SERVO_RESET_MS   : ms per grado in modalità ripristino a 0
+//                      (direzione contraria, pale non rilasciano)
 // ---------------------------------------------------------------
-const int SERVO_STEP = 40;
+const int SERVO_STEP     = 40;
+const int SERVO_SLOW_MS  = 12;   // → 40° = 480ms per kit
+const int SERVO_RESET_MS =  6;   // → reset 160°→0 ≈ 960ms
 
 // --- GLOBALI ---
 RobotConfig config;
@@ -440,20 +446,39 @@ void blinkVictim(int times = 5, int onMs = 250, int offMs = 200) {
 }
 
 // ============================================================
+//  MOVIMENTO LENTO SERVO
+//  Avanza di 1° alla volta con msPerDeg di pausa tra ogni step.
+//  Direzione automatica: sale se target > servoAngle, scende altrimenti.
+// ============================================================
+
+void servoSlowMove(int target, int msPerDeg = SERVO_SLOW_MS) {
+  target = constrain(target, 0, 180);
+  while (servoAngle != target) {
+    servoAngle += (target > servoAngle) ? 1 : -1;
+    medikitServo.write(servoAngle);
+    delay(msPerDeg);
+  }
+}
+
+// ============================================================
 //  EROGAZIONE SINGOLO MEDIKIT
+//  Avanza sempre nella stessa direzione (angolo crescente).
+//  Quando supererebbe 170°, ripristina lentamente a 0
+//  (le pale della ruota non rilasciano kit in direzione contraria)
+//  poi riprende il passo successivo.
 // ============================================================
 
 void dispenseKit() {
   int nextAngle = servoAngle + SERVO_STEP;
   if (nextAngle > 170) {
-    medikitServo.write(0);
-    delay(400);
-    servoAngle = 0;
-    nextAngle  = SERVO_STEP;
+    lcdShow("SERVO RESET", "0deg...");
+    dbg("Servo reset: " + String(servoAngle) + "deg → 0deg");
+    servoSlowMove(0, SERVO_RESET_MS);
+    nextAngle = SERVO_STEP;
   }
-  medikitServo.write(nextAngle);
-  servoAngle = nextAngle;
-  delay(600);
+  lcdShow("EROGAZ. KIT", String(servoAngle) + ">" + String(nextAngle) + "deg");
+  dbg("Servo: " + String(servoAngle) + "deg → " + String(nextAngle) + "deg");
+  servoSlowMove(nextAngle);
 }
 
 // ============================================================
@@ -592,8 +617,11 @@ void setup() {
   delay(1000);
 
   medikitServo.attach(SERVO_PIN);
-  medikitServo.write(0);
-  servoAngle = 0;
+  medikitServo.write(90);  // posizione neutra di partenza (best-guess)
+  servoAngle = 90;
+  delay(400);              // lascia raggiungere 90°
+  lcdShow("SERVO INIT", "90 -> 0deg...");
+  servoSlowMove(0);        // porta lentamente a 0 (12ms/grado ≈ 1.1s)
 
   tof.ts = 0;
 
