@@ -88,17 +88,8 @@ const int ROT_90_MS  = 450;
 const int ROT_180_MS = 880;
 const int ROT_SETTLE = 200;
 
-// ---------------------------------------------------------------
-// Rilevamento rampa senza pitch sensor
-//   RAMP_ENTER_CYCLES: cicli oltre il limite normale → siamo in rampa
-//   RAMP_EXIT_CYCLES : cicli massimi totali rampa (60cm ≈ 185 tick)
-//   RAMP_BOOST_PWM   : potenza salita
-//   RAMP_BRAKE_PWM   : potenza discesa (non distinguibile senza IMU,
-//                      usare BOOST per sicurezza su entrambe)
-// ---------------------------------------------------------------
-const int RAMP_ENTER_CYCLES = 90;
-const int RAMP_EXIT_CYCLES  = 185;
-const int RAMP_BOOST_PWM    = 220;
+// Velocità di crociera costante (rampa rimossa)
+const int BASE_SPEED = 130;
 
 // ---------------------------------------------------------------
 // Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
@@ -138,10 +129,11 @@ void calibrateColors() {
   lcd.clear(); lcd.print("MODE: CALIBRA");
   delay(2000);
 
-  const char* names[]   = {"BIANCO/NORM", "GRIGIO/CHK", "ROSSO/DANGER", "BLU/DELAY", "NERO/TRAP"};
-  ColorRGB*   targets[] = {&config.normal, &config.grey, &config.red, &config.blue, &config.black};
+  // Grigio e rosso disabilitati — calibrare solo 3 colori attivi
+  const char* names[]   = {"BIANCO/NORM", "BLU/DELAY", "NERO/TRAP"};
+  ColorRGB*   targets[] = {&config.normal, &config.blue, &config.black};
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 3; i++) {
     lcd.clear(); lcd.print("POSIZIONA SU:"); lcd.setCursor(0, 1); lcd.print(names[i]);
     while (digitalRead(BTN_START) == HIGH);
     delay(500);
@@ -173,6 +165,8 @@ int getDetectedColor() {
   if (d_red   < minDist) { minDist = d_red;   winner = 2; }
   if (d_blue  < minDist) { minDist = d_blue;  winner = 3; }
   if (d_black < minDist) {                    winner = 4; }
+  // Grigio e rosso disabilitati (sensore inaffidabile) — trattati come normale
+  if (winner == 1 || winner == 2) winner = 0;
   return winner;
 }
 
@@ -258,7 +252,7 @@ void scanSensors() {
   int R = (((tof.ra + tof.rp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
   int L = (((tof.la + tof.lp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
 
-  const char* colori[] = {"NORM","GREY","REDD","BLUE","BLCK"};
+  const char* colori[] = {"NORM","----","----","BLUE","BLCK"};
   String muri = "F:"; muri += F; muri += " R:"; muri += R; muri += " L:"; muri += L;
   lcdShow("SCAN " + muri, "Col:" + String(colori[c]));
   dbg("SCAN F:" + String(tof.front,1) + "cm R:" + String((tof.ra+tof.rp)/2,1)
@@ -277,8 +271,6 @@ void moveForward() {
 
   moveCounter  = 0;
   lastMoveTime = millis();
-  float baseSpeed = 130;
-  bool  rampMode  = false;
 
   updateToF();
   float dF_start = tof.front;
@@ -292,27 +284,6 @@ void moveForward() {
     if (millis() - lastMoveTime < 20) continue;
     lastMoveTime = millis();
     moveCounter++;
-
-    // ---- Rilevamento rampa per contatore ----
-    // Nessun muro rilevato dopo il limite normale → siamo su rampa
-    if (!rampMode && !wallFront && !wallBack && moveCounter >= RAMP_ENTER_CYCLES) {
-      rampMode = true;
-      lcdShow("RAMPA RILEVATA", "Boost ON");
-      dbg("Rampa rilevata per timeout cicli=" + String(moveCounter));
-    }
-
-    if (rampMode) {
-      // Fail-safe rampa: ~60cm percorsi
-      if (moveCounter >= RAMP_EXIT_CYCLES) {
-        stopMotors();
-        lcdShow("RAMPA OK", "2 celle avanzate");
-        dbg("Rampa completata cicli=" + String(moveCounter));
-        Serial.println("<MOVE:RAMP>");
-        scanSensors();
-        return;
-      }
-      baseSpeed = RAMP_BOOST_PWM;
-    }
 
     // ---- Controllo cella nera ----
     if (getDetectedColor() == 4) {
@@ -328,7 +299,7 @@ void moveForward() {
       return;
     }
 
-    // ---- Anti-drift con correzione angolare (identico a main.ino) ----
+    // ---- Anti-drift con correzione angolare ----
     updateToF();
     float ra = tof.ra, rp = tof.rp;
     float la = tof.la, lp = tof.lp;
@@ -352,7 +323,7 @@ void moveForward() {
     if (ra < DIST_PERICOLO_RUOTA || rp < DIST_PERICOLO_RUOTA) drift = -60;
     if (la < DIST_PERICOLO_RUOTA || lp < DIST_PERICOLO_RUOTA) drift =  60;
 
-    setMotors(baseSpeed + drift, baseSpeed - drift);
+    setMotors(BASE_SPEED + drift, BASE_SPEED - drift);
 
     // ---- Condizioni di fine cella ----
     float dF = tof.front;
@@ -362,9 +333,9 @@ void moveForward() {
       wallFront = true;
     }
 
-    if (wallFront && dF <= TARGET_FRONT_DIST)        break;
-    if (wallBack  && dB >= (dB_start + 29.5f))       break;
-    // Nota: fail-safe a 90 cicli → entra in rampMode invece di break
+    if (wallFront && dF <= TARGET_FRONT_DIST)       break;
+    if (wallBack  && dB >= (dB_start + 29.5f))      break;
+    if (!wallFront && !wallBack && moveCounter >= 90) break; // Fail-safe ~30cm
   }
 
   stopMotors();

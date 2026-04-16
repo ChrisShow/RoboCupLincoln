@@ -80,8 +80,7 @@ const float SOGLIA_MURO_LAT      = 18.0;  // cm — discrimina muro(10) da apert
 const float TARGET_LAT_DIST      = 10.0;  // cm — distanza ideale ToF laterale ↔ muro
 const float TARGET_FRONT_DIST    =  6.5;  // cm — stop al centro cella (15-8.5=6.5)
 const float DIST_PERICOLO_RUOTA  =  4.5;  // cm — ruota a 1.5cm dal muro (contatto a 3cm)
-const float RAMP_PITCH_ENTER     = 15.0;  // gradi — ingresso modalità rampa
-const float RAMP_PITCH_EXIT      =  5.0;  // gradi — uscita modalità rampa
+const int   BASE_SPEED           = 130;   // PWM velocità di crociera (costante)
 
 // Guadagni PID rotazione (sovrascrivibili via EEPROM)
 const float KP_ROT_DEFAULT = 4.5;
@@ -134,10 +133,11 @@ void calibrateColors() {
   lcd.clear(); lcd.print("MODE: CALIBRA");
   delay(2000);
 
-  const char* names[]    = {"BIANCO/NORM", "GRIGIO/CHK", "ROSSO/DANGER", "BLU/DELAY", "NERO/TRAP"};
-  ColorRGB*   targets[]  = {&config.normal, &config.grey, &config.red, &config.blue, &config.black};
+  // Grigio e rosso disabilitati — calibrare solo 3 colori attivi
+  const char* names[]   = {"BIANCO/NORM", "BLU/DELAY", "NERO/TRAP"};
+  ColorRGB*   targets[] = {&config.normal, &config.blue, &config.black};
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 3; i++) {
     lcd.clear(); lcd.print("POSIZIONA SU:"); lcd.setCursor(0, 1); lcd.print(names[i]);
     while (digitalRead(BTN_START) == HIGH);
     delay(500);
@@ -173,6 +173,8 @@ int getDetectedColor() {
   if (d_red   < minDist) { minDist = d_red;   winner = 2; }
   if (d_blue  < minDist) { minDist = d_blue;  winner = 3; }
   if (d_black < minDist) {                    winner = 4; }
+  // Grigio e rosso disabilitati (sensore inaffidabile) — trattati come normale
+  if (winner == 1 || winner == 2) winner = 0;
   return winner;
 }
 
@@ -273,7 +275,7 @@ void scanSensors() {
   int L = (((tof.la + tof.lp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
 
   // Log su LCD: muri F/R/L e colore pavimento
-  const char* colori[] = {"NORM","GREY","REDD","BLUE","BLCK"};
+  const char* colori[] = {"NORM","----","----","BLUE","BLCK"};
   String muri = "F:"; muri += F; muri += " R:"; muri += R; muri += " L:"; muri += L;
   String pavimento = "Col:"; pavimento += colori[c];
   lcdShow("SCAN " + muri, pavimento);
@@ -295,8 +297,6 @@ void moveForward() {
 
   moveCounter  = 0;
   lastMoveTime = millis();
-  float baseSpeed = 130;
-  bool  rampMode  = false;
 
   updateToF();
   float dF_start = tof.front;
@@ -306,30 +306,6 @@ void moveForward() {
 
   while (true) {
     mpu.update();
-    float pitch = mpu.getAngleY();
-
-    // ---- Modalità rampa ----
-    if (abs(pitch) > RAMP_PITCH_ENTER) {
-      if (!rampMode) {
-        bool salita = (pitch > 0);
-        lcdShow("RAMPA " + String(salita ? "SALITA" : "DISCESA"),
-                "Pitch:" + String(pitch, 1));
-        dbg("Rampa rilevata pitch=" + String(pitch, 1) + (salita ? " SALITA" : " DISCESA"));
-      }
-      rampMode = true;
-      int power = (pitch > RAMP_PITCH_ENTER) ? 230 : 80;
-      setMotors(power, power);
-      continue;
-    }
-
-    if (rampMode && abs(pitch) < RAMP_PITCH_EXIT) {
-      stopMotors();
-      lcdShow("RAMPA OK", "2 celle avanzate");
-      dbg("Rampa completata pitch=" + String(pitch, 1));
-      Serial.println("<MOVE:RAMP>");
-      scanSensors();
-      return;
-    }
 
     // ---- Tick di controllo ogni 20ms ----
     if (millis() - lastMoveTime < 20) continue;
@@ -378,7 +354,7 @@ void moveForward() {
     if (ra < DIST_PERICOLO_RUOTA || rp < DIST_PERICOLO_RUOTA) drift = -60;
     if (la < DIST_PERICOLO_RUOTA || lp < DIST_PERICOLO_RUOTA) drift =  60;
 
-    setMotors(baseSpeed + drift, baseSpeed - drift);
+    setMotors(BASE_SPEED + drift, BASE_SPEED - drift);
 
     // ---- Condizioni di fine cella ----
     float dF = tof.front;

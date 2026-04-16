@@ -29,7 +29,7 @@ CAMERA_SETTLE_TIME = 0.3  # secondi
 # Costanti direzioni assolute
 NORD, EST, SUD, OVEST = 0, 1, 2, 3
 DIR_NOMI = {NORD: "NORD", EST: "EST", SUD: "SUD", OVEST: "OVEST"}
-COLORE_NOMI = {0: "NORMALE", 1: "GRIGIO(chk)", 2: "ROSSO(chk)", 3: "BLU(attesa)", 4: "NERO(trap)"}
+COLORE_NOMI = {0: "NORMALE", 3: "BLU(attesa)", 4: "NERO(trap)"}
 
 def log(categoria, msg):
     """Stampa su terminale con timestamp e categoria."""
@@ -45,7 +45,7 @@ class Cell:
         self.y = y
         self.walls = [None, None, None, None]  # 0:N, 1:E, 2:S, 3:O — None=sconosciuto
         self.visited = False
-        self.color = 0  # 0=bianco, 1=grigio(checkpoint), 2=rosso(danger), 3=blu(delay), 4=nero(trap)
+        self.color = 0  # 0=normale, 3=blu(attesa+blocca), 4=nero(trap)
 
 
 class Robot:
@@ -59,8 +59,8 @@ class Robot:
         self.last_move = 0       # Ultimo <GO:X> inviato (direzione relativa)
         self.returning_home = False
         self.dijkstra_path = []
-        self.checkpoints = set() # Celle grigie/rosse (checkpoint di gara)
-        self.no_transit = set()  # Celle blu: transitabili una volta sola, poi bloccate
+        self.no_transit = set()  # Celle blu già visitate: non riattraversabili
+        self.pending_blue = None # Coordinata dell'ultima cella blu — bloccata appena il bot la lascia
 
     def update_position(self, steps=1):
         """
@@ -358,8 +358,8 @@ def main():
             robot.stack = []
             robot.returning_home = False
             robot.dijkstra_path = []
-            robot.checkpoints = set()
             robot.no_transit = set()
+            robot.pending_blue = None
             log("NAV", "="*40)
             log("NAV", "GARA INIZIATA — mappa resettata")
             log("NAV", "Posizione: (0,0)  Orientamento: NORD")
@@ -391,18 +391,18 @@ def main():
             log("NAV", f"--- Cella {curr} | Ori: {DIR_NOMI[robot.orientation]} | {muri_str} | Pavimento: {COLORE_NOMI.get(c,'?')} ---")
             log("NAV", f"Celle esplorate: {len(robot.visited)}  Stack DFS: {len(robot.stack)}")
 
+            # Se c'era una cella blu pending e ora siamo su una cella diversa → bloccarla
+            if robot.pending_blue is not None and c != 3:
+                robot.no_transit.add(robot.pending_blue)
+                log("NAV", f"Cella BLU {robot.pending_blue} bloccata — bot ora su {curr} (colore {COLORE_NOMI.get(c,'NORM')})")
+                robot.pending_blue = None
+
             if c == 3:
-                log("NAV", f"Cella BLU rilevata — attesa 5s obbligatoria, poi bloccata")
+                log("NAV", f"Cella BLU {curr} — transito completo, attesa 5s obbligatoria")
                 comm.send("<WAIT:5>")
                 time.sleep(5.5)
-                robot.no_transit.add(curr)
-                log("NAV", f"Cella BLU {curr} bloccata — non transitabile in futuro")
-            elif c == 1:
-                robot.checkpoints.add(curr)
-                log("NAV", f"Checkpoint GRIGIO salvato a {curr}  (tot checkpoints: {len(robot.checkpoints)})")
-            elif c == 2:
-                robot.checkpoints.add(curr)
-                log("NAV", f"Checkpoint ROSSO salvato a {curr}  (tot checkpoints: {len(robot.checkpoints)})")
+                robot.pending_blue = curr
+                log("NAV", f"Cella BLU {curr} memorizzata — sarà bloccata all'uscita")
 
             # Scansione visiva pareti
             pareti_da_scansionare = []
