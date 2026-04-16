@@ -1,12 +1,14 @@
 /*
  * Progetto: RoboCup Junior Rescue Maze 2026 - mENIAC Team
  * Descrizione: Firmware Arduino Mega 2560 — BACKUP SENZA MPU6050
- *   - Rotazione open-loop: velocità motori + tempo calibrato
- *   - Rilevazione rampa: contatore cicli (> RAMP_ENTER_CYCLES)
- *   - Anti-drift ToF identico a main.ino
- *   - Calibrazione EEPROM interattiva colori
- *   - Cache letture ToF (TOF_REFRESH_MS)
- *   - LCD + debug seriale [D] identici a main.ino
+ *
+ *   Identico a main.ino tranne:
+ *   - Rotazione: open-loop velocità × tempo (ROT_90_MS / ROT_180_MS)
+ *   - Rampa: rilevata per contatore cicli (no pitch sensor)
+ *   - RobotConfig: senza campi PID (solo colori EEPROM)
+ *
+ *   Tuning necessario: ROT_90_MS, ROT_180_MS empiricamente
+ *   su superficie di gara con batteria carica.
  */
 
 #include <Wire.h>
@@ -66,13 +68,6 @@ const int   TOF_REFRESH_MS = 15;
 
 // ---------------------------------------------------------------
 // Soglie geometricamente derivate — robot 22cm, cella 30x30cm
-//
-//  Scocca 17×10cm. Centro rotazione: 8.5cm ant/post, 5.0cm lat.
-//  Front ToF  : 8.5cm avanti  → lettura muro frontale centrato = 15-8.5 = 6.5cm
-//  Rear ToF   : 8.5cm dietro  → lettura muro posteriore centrato = 6.5cm
-//  Side ToF   : 5.0cm laterale→ lettura muro laterale centrato  = 15-5.0 = 10.0cm
-//  Ruote      : 8.0cm laterale→ clearance muro centrato = 15-8.0 = 7.0cm
-//  Sens.colore: 12.5cm avanti → clearance muro frontale = 15-12.5 = 2.5cm
 // ---------------------------------------------------------------
 const float SOGLIA_MURO_FRONT   = 25.0;
 const float SOGLIA_MURO_LAT     = 18.0;
@@ -81,11 +76,12 @@ const float TARGET_FRONT_DIST   =  6.5;
 const float DIST_PERICOLO_RUOTA =  4.5;
 
 // ---------------------------------------------------------------
-// Costanti rotazione open-loop (TUNING: misura empiricamente)
-//   ROT_SPEED   : PWM applicato ai motori durante la rotazione
-//   ROT_90_MS   : ms per completare 90°
-//   ROT_180_MS  : ms per completare 180° (di solito ~2 × ROT_90_MS)
-//   ROT_SETTLE  : ms di pausa dopo stop rotazione per stabilizzarsi
+// Rotazione open-loop — TUNING EMPIRICO richiesto
+//   Misurare su superficie di gara con batteria carica.
+//   ROT_SPEED   : PWM applicato durante la rotazione
+//   ROT_90_MS   : ms per 90°  (tipico: 400–550ms)
+//   ROT_180_MS  : ms per 180° (tipico: ~2 × ROT_90_MS)
+//   ROT_SETTLE  : pausa post-rotazione per stabilizzarsi
 // ---------------------------------------------------------------
 const int ROT_SPEED  = 160;
 const int ROT_90_MS  = 450;
@@ -93,22 +89,16 @@ const int ROT_180_MS = 880;
 const int ROT_SETTLE = 200;
 
 // ---------------------------------------------------------------
-// Costanti rilevazione rampa (senza pitch sensor)
-//   RAMP_ENTER_CYCLES: se il robot supera questo contatore senza
-//                      trigger muri, assume di essere su una rampa
-//   RAMP_EXIT_CYCLES : cicli massimi in rampa (60cm ≈ 185 tick da 20ms)
-//   RAMP_BOOST_PWM   : potenza motori in salita
-//   RAMP_BRAKE_PWM   : potenza motori in discesa
-//
-//   Nota: in discesa il robot supera RAMP_ENTER_CYCLES ma i ToF
-//   laterali restano stabili e il front ToF si avvicina come in
-//   piano → wallFront trigger fermera' normalmente.
-//   RAMP_BOOST serve per vincere la gravità in salita.
+// Rilevamento rampa senza pitch sensor
+//   RAMP_ENTER_CYCLES: cicli oltre il limite normale → siamo in rampa
+//   RAMP_EXIT_CYCLES : cicli massimi totali rampa (60cm ≈ 185 tick)
+//   RAMP_BOOST_PWM   : potenza salita
+//   RAMP_BRAKE_PWM   : potenza discesa (non distinguibile senza IMU,
+//                      usare BOOST per sicurezza su entrambe)
 // ---------------------------------------------------------------
-const int RAMP_ENTER_CYCLES = 90;   // ~1.8s = fine percorso normale
-const int RAMP_EXIT_CYCLES  = 185;  // ~3.7s = 60cm su rampa
+const int RAMP_ENTER_CYCLES = 90;
+const int RAMP_EXIT_CYCLES  = 185;
 const int RAMP_BOOST_PWM    = 220;
-const int RAMP_BRAKE_PWM    =  80;
 
 // ---------------------------------------------------------------
 // Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
@@ -229,7 +219,9 @@ void dbg(String msg) {
 }
 
 // ============================================================
-//  ROTAZIONE OPEN-LOOP (velocità + tempo)
+//  ROTAZIONE OPEN-LOOP (velocità × tempo)
+//  TUNING: misurare ROT_90_MS su superficie di gara con
+//  batteria carica. Ruota con entrambe le fiancate opposte.
 // ============================================================
 
 void rotate(float rel_deg) {
@@ -276,7 +268,7 @@ void scanSensors() {
 }
 
 // ============================================================
-//  AVANZAMENTO con anti-drift angolare + rilevazione rampa a contatore
+//  AVANZAMENTO con anti-drift angolare + rilevamento rampa a contatore
 // ============================================================
 
 void moveForward() {
@@ -301,8 +293,8 @@ void moveForward() {
     lastMoveTime = millis();
     moveCounter++;
 
-    // ---- Rilevazione rampa per contatore ----
-    // Superato il limite normale senza trigger muri → siamo su rampa
+    // ---- Rilevamento rampa per contatore ----
+    // Nessun muro rilevato dopo il limite normale → siamo su rampa
     if (!rampMode && !wallFront && !wallBack && moveCounter >= RAMP_ENTER_CYCLES) {
       rampMode = true;
       lcdShow("RAMPA RILEVATA", "Boost ON");
@@ -310,10 +302,7 @@ void moveForward() {
     }
 
     if (rampMode) {
-      // In salita: boost pieno.
-      // In discesa: il front ToF dovrebbe avvicinarsi — se wallFront si attiva,
-      // usciamo normalmente dalla rampa con MOVE:OK.
-      // Fail-safe rampa: se abbiamo percorso ~60cm (RAMP_EXIT_CYCLES) senza stop.
+      // Fail-safe rampa: ~60cm percorsi
       if (moveCounter >= RAMP_EXIT_CYCLES) {
         stopMotors();
         lcdShow("RAMPA OK", "2 celle avanzate");
@@ -322,7 +311,6 @@ void moveForward() {
         scanSensors();
         return;
       }
-      // Potenza boost; anti-drift attivo anche in rampa
       baseSpeed = RAMP_BOOST_PWM;
     }
 
@@ -374,10 +362,9 @@ void moveForward() {
       wallFront = true;
     }
 
-    if (wallFront && dF <= TARGET_FRONT_DIST)         break;
-    if (wallBack  && dB >= (dB_start + 29.5f))        break;
-    // Nota: il fail-safe a 90 cicli è assorbito da RAMP_ENTER_CYCLES;
-    // qui non facciamo break ma entriamo in rampMode (vedi sopra).
+    if (wallFront && dF <= TARGET_FRONT_DIST)        break;
+    if (wallBack  && dB >= (dB_start + 29.5f))       break;
+    // Nota: fail-safe a 90 cicli → entra in rampMode invece di break
   }
 
   stopMotors();
@@ -432,6 +419,7 @@ void handleRescue(char pos, int tipo) {
     return;
   }
 
+  // tipo=1 → OMEGA (0 kit), tipo=2 → PHI (1 kit), tipo=3 → PSI (2 kit)
   const char* nomi[] = {"", "OMEGA",  "PHI",  "PSI"};
   const int   kits[] = {  0,      0,      1,      2};
   int numKit = kits[tipo];
@@ -485,7 +473,7 @@ void handleCommand(String cmd) {
     rotate(90);
   }
   else if (cmd == "VIC:DONE") {
-    dbg("Nessuna vittima segnalata");
+    dbg("Lista vittime ricevuta - nessuna vittima");
     Serial.println("<VIC:DONE>");
   }
   else if (cmd.startsWith("VIC:")) {
@@ -531,7 +519,7 @@ void setup() {
   pinMode(TCS_S0, OUTPUT); pinMode(TCS_S1, OUTPUT);
   pinMode(TCS_S2, OUTPUT); pinMode(TCS_S3, OUTPUT);
   pinMode(TCS_OUT, INPUT);
-  digitalWrite(TCS_S0, HIGH); digitalWrite(TCS_S1, LOW); // Scaling TCS3200 al 20%
+  digitalWrite(TCS_S0, HIGH); digitalWrite(TCS_S1, LOW); // TCS3200 scaling 20%
 
   EEPROM.get(0, config);
   if (digitalRead(BTN_START) == LOW || config.magic != MAGIC_VAL) {
@@ -551,12 +539,12 @@ void setup() {
     }
   }
 
-  // Nessun MPU — skip calibrazione giroscopio
-  lcdShow("NO MPU MODE", "BACKUP FIRMWARE");
-  delay(1500);
+  // Nessuna calibrazione MPU — avvio immediato
+  lcdShow("NO MPU MODE", "BACKUP FW");
+  delay(1000);
 
   medikitServo.attach(SERVO_PIN);
-  medikitServo.write(0);   // pala in posizione di riposo (angolo 0°)
+  medikitServo.write(0);
   servoAngle = 0;
 
   tof.ts = 0;
