@@ -4,303 +4,345 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-1" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Raspberry Pi 4B (Master)" vertex="1">
-          <mxGeometry height="1848" width="193" x="77" y="20" as="geometry" />
+
+        <!-- ═══════════════ LIFELINES ═══════════════ -->
+        <mxCell id="lf-rpi" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Raspberry Pi 4B (Master)" vertex="1">
+          <mxGeometry height="2200" width="193" x="77" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-2" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Arduino Mega 2560 (Slave)" vertex="1">
-          <mxGeometry height="1848" width="212" x="383" y="20" as="geometry" />
+        <mxCell id="lf-ard" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Arduino Mega 2560 (Slave)" vertex="1">
+          <mxGeometry height="2200" width="212" x="383" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-3" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Sensori (ToF, Colore, IMU)" vertex="1">
-          <mxGeometry height="1848" width="201" x="706" y="20" as="geometry" />
+        <mxCell id="lf-sen" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Sensori (ToF ×6, TCS3200, MPU6050)" vertex="1">
+          <mxGeometry height="2200" width="201" x="706" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-4" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Motori &amp; Dispenser" vertex="1">
-          <mxGeometry height="1848" width="160" x="957" y="20" as="geometry" />
+        <mxCell id="lf-mot" parent="1" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};size=65;fillColor=light-dark(#eeeeee,#1f2020);strokeColor=light-dark(#999999,#cccccc);fontColor=light-dark(#333333,#cccccc);" value="Motori &amp; Dispenser SG90" vertex="1">
+          <mxGeometry height="2200" width="160" x="957" y="20" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-5" parent="1" style="shape=umlFrame;dashed=1;pointerEvents=0;dropTarget=0;strokeColor=#B3B3B3;height=20;width=30;fillColor=light-dark(#eeeeee,#1f2020);fontColor=light-dark(#333333,#cccccc);" value="alt" vertex="1">
-          <mxGeometry height="263" width="886" x="163" y="643" as="geometry" />
+
+        <!-- ═══════════════ NOTE FASE ═══════════════ -->
+        <mxCell id="note1" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Fase 1 — Setup &amp; Inizializzazione" vertex="1">
+          <mxGeometry height="40" width="365" x="149" y="90" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-6" parent="Mn7m2CNQqhaKUi6OsGTt-5" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" value="[Vittima Rilevata]" vertex="1">
+        <mxCell id="note2" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Fase 2 — Loop di Navigazione (per ogni cella visitata)" vertex="1">
+          <mxGeometry height="40" width="365" x="149" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="note3" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Visione Artificiale: YOLOv8s — PHI / PSI / OMEGA / FAKE" vertex="1">
+          <mxGeometry height="36" width="305" x="179" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="note4" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Decisione Algoritmo: DFS + Backtracking BFS + Propagazione Simmetria Muri" vertex="1">
+          <mxGeometry height="40" width="365" x="149" y="1090" as="geometry" />
+        </mxCell>
+        <mxCell id="note5" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Fase 3 — Ritorno a Casa: Dijkstra path verso (0,0)" vertex="1">
+          <mxGeometry height="40" width="365" x="149" y="2040" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════ FASE 1 — SETUP ═══════════════ -->
+        <!-- #1 Arduino → Sensors: init hardware -->
+        <mxCell id="e1" edge="1" parent="1" source="lf-ard" target="lf-sen" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="Inizializzazione hardware: ToF (sequenza XSHUT), MPU6050, EEPROM colori">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="656" y="150" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e1b" parent="e1" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="1" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-166" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #2 Sensors → Arduino: hardware OK -->
+        <mxCell id="e2" edge="1" parent="1" source="lf-sen" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="Componenti pronti — calibrazione offset MPU6050 completata">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="659" y="200" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e2b" parent="e2" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="2" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #3 Arduino → RPi: <INIT> -->
+        <mxCell id="e3" edge="1" parent="1" source="lf-ard" target="lf-rpi" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="&lt;INIT&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="343" y="250" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e3b" parent="e3" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="3" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #4 Arduino → Sensors: scanSensors() -->
+        <mxCell id="e4" edge="1" parent="1" source="lf-ard" target="lf-sen" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="scanSensors()">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="656" y="300" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e4b" parent="e4" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="4" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-166" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #5 Sensors → Arduino: muri + colore -->
+        <mxCell id="e5" edge="1" parent="1" source="lf-sen" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="Muri F/R/L (ToF) + Colore pavimento (TCS3200)">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="659" y="350" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e5b" parent="e5" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="5" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #6 Arduino → RPi: <DATA:C,FRL> -->
+        <mxCell id="e6" edge="1" parent="1" source="lf-ard" target="lf-rpi" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="&lt;DATA:C,FRL&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="343" y="410" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e6b" parent="e6" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="6" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════ VISIONE ═══════════════ -->
+        <!-- #7 RPi self-loop: YOLOv8s inference -->
+        <mxCell id="e7" edge="1" parent="1" source="lf-rpi" target="lf-rpi" style="curved=1;endArrow=block;rounded=0;" value="flush buffer (8 frame) + inferenza YOLOv8s — 3 frame · cam DX + cam SX">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="225" y="575" /><mxPoint x="225" y="605" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e7b" parent="e7" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="7" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-57" y="-22" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════ ALT [Vittima Rilevata] ═══════════════ -->
+        <mxCell id="fv" parent="1" style="shape=umlFrame;dashed=1;pointerEvents=0;dropTarget=0;strokeColor=#B3B3B3;height=20;width=30;fillColor=light-dark(#eeeeee,#1f2020);fontColor=light-dark(#333333,#cccccc);" value="alt" vertex="1">
+          <mxGeometry height="480" width="886" x="163" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="fv-t" parent="fv" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" value="[Vittima rilevata — tipo &gt; 0]" vertex="1">
           <mxGeometry height="20" width="856" x="30" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-7" parent="1" style="shape=umlFrame;dashed=1;pointerEvents=0;dropTarget=0;strokeColor=#B3B3B3;height=20;width=30;fillColor=light-dark(#eeeeee,#1f2020);fontColor=light-dark(#333333,#cccccc);" value="alt" vertex="1">
-          <mxGeometry height="310" width="886" x="163" y="1227" as="geometry" />
+
+        <!-- #8 RPi → Arduino: <SCAN:FRONT> -->
+        <mxCell id="e8" edge="1" parent="1" source="lf-rpi" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="&lt;SCAN:FRONT&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="340" y="665" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-8" parent="Mn7m2CNQqhaKUi6OsGTt-7" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" value="[Rilevata Cella Nera]" vertex="1">
-          <mxGeometry height="20" width="856" x="30" as="geometry" />
+        <mxCell id="e8b" parent="e8" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="8" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-165" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-9" parent="Mn7m2CNQqhaKUi6OsGTt-7" style="shape=line;dashed=1;whiteSpace=wrap;verticalAlign=top;labelPosition=center;verticalLabelPosition=middle;align=center;strokeColor=#B3B3B3;" value="[Raggiunto Centro Cella]" vertex="1">
-          <mxGeometry height="3" width="886" y="160" as="geometry" />
+
+        <!-- #9 Arduino → Motors: rotate -90° -->
+        <mxCell id="e9" edge="1" parent="1" source="lf-ard" target="lf-mot" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="rotazione -90° (cam laterale allineata al muro frontale)">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="771" y="705" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-10" parent="1" style="shape=umlFrame;dashed=1;pointerEvents=0;dropTarget=0;strokeColor=#B3B3B3;height=20;width=40;fillColor=light-dark(#eeeeee,#1f2020);fontColor=light-dark(#333333,#cccccc);" value="loop" vertex="1">
-          <mxGeometry height="475" width="906" x="153" y="1072" as="geometry" />
+        <mxCell id="e9b" parent="e9" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="9" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-282" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-11" parent="Mn7m2CNQqhaKUi6OsGTt-10" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" value="[Controllo Real-Time (Ogni 20ms)]" vertex="1">
+
+        <!-- #10 Arduino → RPi: <SCAN:OK> -->
+        <mxCell id="e10" edge="1" parent="1" source="lf-ard" target="lf-rpi" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="&lt;SCAN:OK&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="343" y="745" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e10b" parent="e10" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="10" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #11 RPi self-loop: scan muro frontale -->
+        <mxCell id="e11" edge="1" parent="1" source="lf-rpi" target="lf-rpi" style="curved=1;endArrow=block;rounded=0;" value="scan muro frontale — 3 frame YOLOv8s">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="225" y="775" /><mxPoint x="225" y="805" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e11b" parent="e11" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="11" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-57" y="-22" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #12 RPi → Arduino: <SCAN:DONE> -->
+        <mxCell id="e12" edge="1" parent="1" source="lf-rpi" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="&lt;SCAN:DONE&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="340" y="835" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e12b" parent="e12" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="12" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-165" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #13 Arduino → Motors: rotate +90° -->
+        <mxCell id="e13" edge="1" parent="1" source="lf-ard" target="lf-mot" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="rotazione +90° — ripristino orientamento">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="771" y="865" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e13b" parent="e13" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="13" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-282" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #14 RPi → Arduino: <VIC:POS,TIPO> -->
+        <mxCell id="e14" edge="1" parent="1" source="lf-rpi" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="&lt;VIC:POS,TIPO&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="340" y="905" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e14b" parent="e14" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="14" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-165" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #15 Arduino → Motors: rotate + dispense -->
+        <mxCell id="e15" edge="1" parent="1" source="lf-ard" target="lf-mot" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="rotazione verso vittima + erogazione TIPO kit (servo SG90)">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="771" y="945" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e15b" parent="e15" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="15" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-282" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #16 Motors → Arduino: done -->
+        <mxCell id="e16" edge="1" parent="1" source="lf-mot" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="erogazione completata">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="774" y="985" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e16b" parent="e16" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="16" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="267" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #17 Arduino → RPi: <VIC:DONE> -->
+        <mxCell id="e17" edge="1" parent="1" source="lf-ard" target="lf-rpi" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="&lt;VIC:DONE&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="343" y="1060" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e17b" parent="e17" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="17" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════ DECISIONE ═══════════════ -->
+        <!-- #18 RPi self-loop: DFS + Dijkstra + simmetria -->
+        <mxCell id="e18" edge="1" parent="1" source="lf-rpi" target="lf-rpi" style="curved=1;endArrow=block;rounded=0;" value="DFS / Dijkstra: calcola prossima mossa · propagazione simmetria muri">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="225" y="1150" /><mxPoint x="225" y="1180" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e18b" parent="e18" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="18" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-57" y="-22" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════ MOVIMENTO ═══════════════ -->
+        <!-- #19 RPi → Arduino: <GO:DIR> -->
+        <mxCell id="e19" edge="1" parent="1" source="lf-rpi" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="&lt;GO:DIR&gt;  (0=avanti · 1=destra · 2=dietro · 3=sinistra)">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="340" y="1220" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e19b" parent="e19" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="19" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-165" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- #20 Arduino → Motors: rotate + moveForward -->
+        <mxCell id="e20" edge="1" parent="1" source="lf-ard" target="lf-mot" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="rotate() — PID Yaw MPU6050 · avvio moveForward() anti-drift">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="771" y="1270" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e20b" parent="e20" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="20" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-282" y="-7" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ═══════════════ LOOP [20ms] ═══════════════ -->
+        <mxCell id="fl" parent="1" style="shape=umlFrame;dashed=1;pointerEvents=0;dropTarget=0;strokeColor=#B3B3B3;height=20;width=40;fillColor=light-dark(#eeeeee,#1f2020);fontColor=light-dark(#333333,#cccccc);" value="loop" vertex="1">
+          <mxGeometry height="640" width="906" x="153" y="1310" as="geometry" />
+        </mxCell>
+        <mxCell id="fl-t" parent="fl" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" value="[Controllo Real-Time — ogni 20ms · Anti-Drift + Stop Check]" vertex="1">
           <mxGeometry height="20" width="866" x="40" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-12" parent="1" style="shape=umlFrame;dashed=1;pointerEvents=0;dropTarget=0;strokeColor=#B3B3B3;height=20;width=0;fillColor=light-dark(#eeeeee,#1f2020);fontColor=light-dark(#333333,#cccccc);" value="" vertex="1">
-          <mxGeometry height="1312" width="1049" x="20" y="359" as="geometry" />
+
+        <!-- #21 Arduino → Sensors: updateToF + colore -->
+        <mxCell id="e21" edge="1" parent="1" source="lf-ard" target="lf-sen" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="updateToF() + getDetectedColor()">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="656" y="1370" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-13" parent="Mn7m2CNQqhaKUi6OsGTt-12" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" value="" vertex="1">
-          <mxGeometry height="20" width="1049" as="geometry" />
+        <mxCell id="e21b" parent="e21" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="21" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-166" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-14" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-1" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-2" value="Richiesta Calcolo Soglie (Setup)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="340" y="177" />
-            </Array>
-          </mxGeometry>
+
+        <!-- #22 Sensors → Arduino: distanze + colore -->
+        <mxCell id="e22" edge="1" parent="1" source="lf-sen" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="6 distanze ToF (cm) + colore pavimento">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="659" y="1420" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-15" parent="Mn7m2CNQqhaKUi6OsGTt-14" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="1" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-165" y="-7" as="offset" />
-          </mxGeometry>
+        <mxCell id="e22b" parent="e22" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="22" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-16" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-3" value="Lettura ToF (Centro Cella)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="656" y="231" />
-            </Array>
-          </mxGeometry>
+
+        <!-- ═══ ALT [Cella Nera] inside loop ═══ -->
+        <mxCell id="fn" parent="1" style="shape=umlFrame;dashed=1;pointerEvents=0;dropTarget=0;strokeColor=#B3B3B3;height=20;width=30;fillColor=light-dark(#eeeeee,#1f2020);fontColor=light-dark(#333333,#cccccc);" value="alt" vertex="1">
+          <mxGeometry height="500" width="886" x="163" y="1460" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-17" parent="Mn7m2CNQqhaKUi6OsGTt-16" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="2" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-166.5" y="-7" as="offset" />
-          </mxGeometry>
+        <mxCell id="fn-t" parent="fn" style="text;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;" value="[Cella Nera — colore == 4]" vertex="1">
+          <mxGeometry height="20" width="856" x="30" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-18" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-3" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-2" value="Distanze (6.5cm Fronte, 10cm Lati)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="659" y="285" />
-            </Array>
-          </mxGeometry>
+        <!-- divider between BLACK branch and MOVE:OK branch -->
+        <mxCell id="fn-div" parent="fn" style="shape=line;dashed=1;whiteSpace=wrap;verticalAlign=top;labelPosition=center;verticalLabelPosition=middle;align=center;strokeColor=#B3B3B3;" value="[Centro cella raggiunto — MOVE:OK  oppure  MOVE:RAMP]" vertex="1">
+          <mxGeometry height="3" width="886" y="250" as="geometry" />
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-19" parent="Mn7m2CNQqhaKUi6OsGTt-18" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="3" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="152.5" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- #23 Arduino → Motors: retromarcia -->
+        <mxCell id="e23" edge="1" parent="1" source="lf-ard" target="lf-mot" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="retromarcia (moveCounter × 20ms) — ritorno centro cella precedente">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="771" y="1520" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-20" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-1" value="Sistema Pronto (Status OK)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="343" y="339" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e23b" parent="e23" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="23" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-282" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-21" parent="Mn7m2CNQqhaKUi6OsGTt-20" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="4" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="151" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- #24 Arduino → RPi: <MOVE:BLACK> -->
+        <mxCell id="e24" edge="1" parent="1" source="lf-ard" target="lf-rpi" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="&lt;MOVE:BLACK&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="343" y="1570" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-22" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-1" style="curved=1;endArrow=block;rounded=0;" target="Mn7m2CNQqhaKUi6OsGTt-1" value="Acquisizione Frame (Cam L/R)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="225" y="509" />
-              <mxPoint x="225" y="539" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e24b" parent="e24" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="24" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-23" parent="Mn7m2CNQqhaKUi6OsGTt-22" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="5" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-57" y="-22" as="offset" />
-          </mxGeometry>
+
+        <!-- #25 Arduino → Sensors: scanSensors (post-BLACK) -->
+        <mxCell id="e25" edge="1" parent="1" source="lf-ard" target="lf-sen" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="scanSensors()  [cella precedente]">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="656" y="1618" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-24" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-1" style="curved=1;endArrow=block;rounded=0;" target="Mn7m2CNQqhaKUi6OsGTt-1" value="Elaborazione (Lettere Greche / Cognitive)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="225" y="593" />
-              <mxPoint x="225" y="623" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e25b" parent="e25" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="25" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-166" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-25" parent="Mn7m2CNQqhaKUi6OsGTt-24" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="6" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-57" y="-22" as="offset" />
-          </mxGeometry>
+
+        <!-- #26 Sensors → Arduino: dati (post-BLACK) -->
+        <mxCell id="e26" edge="1" parent="1" source="lf-sen" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="muri + colore">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="659" y="1650" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-26" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-1" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-2" value="&lt;VIC:POS,TIPO&gt;">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="340" y="724" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e26b" parent="e26" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="26" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-27" parent="Mn7m2CNQqhaKUi6OsGTt-26" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="7" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-165" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- #27 Arduino → RPi: <DATA:C,FRL> (post-BLACK) -->
+        <mxCell id="e27" edge="1" parent="1" source="lf-ard" target="lf-rpi" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="&lt;DATA:C,FRL&gt;">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="343" y="1690" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-28" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-4" value="Attivazione Dispenser Medikit">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="771" y="778" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e27b" parent="e27" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="27" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-29" parent="Mn7m2CNQqhaKUi6OsGTt-28" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="8" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-281.75" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- #28 Arduino → Motors: stop (MOVE:OK branch) -->
+        <mxCell id="e28" edge="1" parent="1" source="lf-ard" target="lf-mot" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="stop + frenata elettronica">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="771" y="1760" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-30" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-4" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-2" value="Erogazione Completata">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="774" y="832" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e28b" parent="e28" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="28" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-282" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-31" parent="Mn7m2CNQqhaKUi6OsGTt-30" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="9" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="267.75" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- #29 Arduino → Sensors: scanSensors (post-OK) -->
+        <mxCell id="e29" edge="1" parent="1" source="lf-ard" target="lf-sen" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="scanSensors()  [cella appena raggiunta]">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="656" y="1808" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-32" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-1" value="&lt;VIC:DONE&gt;">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="343" y="886" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e29b" parent="e29" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="29" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-166" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-33" parent="Mn7m2CNQqhaKUi6OsGTt-32" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="10" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="151" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- #30 Sensors → Arduino: dati (post-OK) -->
+        <mxCell id="e30" edge="1" parent="1" source="lf-sen" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="muri + colore">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="659" y="1848" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-34" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-1" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-2" value="&lt;GO:DIR&gt; (N, S, E, W)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="340" y="998" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e30b" parent="e30" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="30" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-35" parent="Mn7m2CNQqhaKUi6OsGTt-34" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="11" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-165" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- #31 Arduino → RPi: <MOVE:OK> o <MOVE:RAMP> -->
+        <mxCell id="e31" edge="1" parent="1" source="lf-ard" target="lf-rpi" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" value="&lt;MOVE:OK&gt;  [1 cella]  oppure  &lt;MOVE:RAMP&gt;  [2 celle — rampa superata]">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="343" y="1895" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-36" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-4" value="Avvio Motori (PID Control)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="771" y="1052" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e31b" parent="e31" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="31" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="152" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-37" parent="Mn7m2CNQqhaKUi6OsGTt-36" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="12" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-281.75" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- ═══════════════ POST-MOVE ═══════════════ -->
+        <!-- #32 RPi self-loop: aggiorna mappa + DATA response -->
+        <mxCell id="e32" edge="1" parent="1" source="lf-rpi" target="lf-rpi" style="curved=1;endArrow=block;rounded=0;" value="aggiorna posizione (x,y) + mappa muri + propagazione simmetria">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="225" y="1970" /><mxPoint x="225" y="2000" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-38" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-3" value="Check ToF &amp; IMU (Allineamento)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="656" y="1153" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e32b" parent="e32" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="32" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-57" y="-22" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-39" parent="Mn7m2CNQqhaKUi6OsGTt-38" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="13" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-166.5" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- [Cella BLU: WAIT] -->
+        <!-- #33 RPi → Arduino: <WAIT:5> (se colore=BLU) -->
+        <mxCell id="e33" edge="1" parent="1" source="lf-rpi" target="lf-ard" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" value="&lt;WAIT:5&gt;  [se colore pavimento = BLU — cella → no_transit]">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="340" y="2030" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-40" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-3" value="Check Sensore Colore (Cella Nera?)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="656" y="1207" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e33b" parent="e33" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="33" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-165" y="-7" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-41" parent="Mn7m2CNQqhaKUi6OsGTt-40" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="14" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-166.5" y="-7" as="offset" />
-          </mxGeometry>
+
+        <!-- ═══════════════ FASE 3 — DIJKSTRA / FINE ═══════════════ -->
+        <!-- #34 RPi self-loop: Dijkstra + missione completata -->
+        <mxCell id="e34" edge="1" parent="1" source="lf-rpi" target="lf-rpi" style="curved=1;endArrow=block;rounded=0;" value="Dijkstra path verso (0,0) — robot segue percorso minimo · Missione Completata">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="225" y="2110" /><mxPoint x="225" y="2140" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-42" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-4" value="Arresto Immediato / Indietro">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="771" y="1308" />
-            </Array>
-          </mxGeometry>
+        <mxCell id="e34b" parent="e34" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="34" vertex="1">
+          <mxGeometry height="14" relative="1" width="14" as="geometry"><mxPoint x="-57" y="-22" as="offset" /></mxGeometry>
         </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-43" parent="Mn7m2CNQqhaKUi6OsGTt-42" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="15" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-281.75" y="-7" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-44" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-1" value="&lt;MOVE:BLACK&gt;">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="343" y="1362" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-45" parent="Mn7m2CNQqhaKUi6OsGTt-44" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="16" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="151" y="-7" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-46" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-4" value="Frenata Elettronica">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="771" y="1463" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-47" parent="Mn7m2CNQqhaKUi6OsGTt-46" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="17" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-281.75" y="-7" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-48" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-2" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;dashed=1;dashPattern=2 3;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-1" value="&lt;MOVE:OK&gt;">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="343" y="1517" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-49" parent="Mn7m2CNQqhaKUi6OsGTt-48" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="18" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="151" y="-7" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-50" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-1" style="curved=1;endArrow=block;rounded=0;" target="Mn7m2CNQqhaKUi6OsGTt-1" value="Aggiornamento Mappa Logica (X,Y)">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="225" y="1591" />
-              <mxPoint x="225" y="1621" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-51" parent="Mn7m2CNQqhaKUi6OsGTt-50" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="19" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-57" y="-22" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-52" edge="1" parent="1" source="Mn7m2CNQqhaKUi6OsGTt-1" style="verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;endArrow=block;" target="Mn7m2CNQqhaKUi6OsGTt-2" value="&lt;STOP&gt;">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="340" y="1763" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-53" parent="Mn7m2CNQqhaKUi6OsGTt-52" style="ellipse;aspect=fixed;fillColor=#000000;align=center;fontColor=#FFFFFF;" value="20" vertex="1">
-          <mxGeometry height="14" relative="1" width="14" as="geometry">
-            <mxPoint x="-165" y="-7" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-54" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Inizializzazione Sistema" vertex="1">
-          <mxGeometry height="48" width="365" x="149" y="95" as="geometry" />
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-55" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="LOOP DI NAVIGAZIONE (Cella Corrente)" vertex="1">
-          <mxGeometry height="48" width="365" x="149" y="379" as="geometry" />
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-56" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Analisi Visione Artificiale (OpenCV)" vertex="1">
-          <mxGeometry height="48" width="265" x="199" y="427" as="geometry" />
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-57" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Decisione Algoritmo (Mappa/DFS)" vertex="1">
-          <mxGeometry height="48" width="261" x="199" y="916" as="geometry" />
-        </mxCell>
-        <mxCell id="Mn7m2CNQqhaKUi6OsGTt-58" parent="1" style="fillColor=#ffff88;strokeColor=#9E916F;fontColor=light-dark(#333333,#cccccc);" value="Fine Esplorazione o Lack of Progress" vertex="1">
-          <mxGeometry height="48" width="365" x="149" y="1681" as="geometry" />
-        </mxCell>
+
       </root>
     </mxGraphModel>
   </diagram>

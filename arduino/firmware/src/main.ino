@@ -91,6 +91,15 @@ const float KD_ROT_DEFAULT = 1.2;
 // Anti-windup: limita l'accumulazione dell'integrale PID
 const float INTEGRAL_CLAMP = 200.0;
 
+// ---------------------------------------------------------------
+// Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
+// Il servo avanza sempre nello stesso verso di SERVO_STEP gradi.
+// Quando il prossimo step supera 170° si resetta velocemente a 0°
+// (la retromarcia non sgancia medikit grazie alla forma delle pale)
+// poi riprende il passo successivo.
+// ---------------------------------------------------------------
+const int SERVO_STEP = 40;   // gradi per singolo medikit
+
 // --- GLOBALI ---
 RobotConfig config;
 ToFCache    tof;
@@ -106,6 +115,7 @@ MPU6050          mpu(Wire);
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo            medikitServo;
 
+int          servoAngle  = 0;    // posizione corrente servo (gradi); avanza solo in avanti
 bool         isRunning   = false;
 int          moveCounter = 0;
 unsigned long lastMoveTime = 0;
@@ -394,6 +404,46 @@ void moveForward() {
 }
 
 // ============================================================
+//  SEGNALAZIONE VITTIMA — lampeggio LED + retroilluminazione LCD
+// ============================================================
+
+void blinkVictim(int times = 5, int onMs = 250, int offMs = 200) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(LED_STATUS, HIGH);
+    lcd.backlight();
+    delay(onMs);
+    digitalWrite(LED_STATUS, LOW);
+    lcd.noBacklight();
+    delay(offMs);
+  }
+  // Fine lampeggio: lascia LED e schermo accesi per tutta la durata del soccorso
+  digitalWrite(LED_STATUS, HIGH);
+  lcd.backlight();
+}
+
+// ============================================================
+//  EROGAZIONE SINGOLO MEDIKIT
+//  Avanza il servo di SERVO_STEP gradi nello stesso verso.
+//  Se il prossimo passo supererebbe 170°, resetta velocemente
+//  a 0° (retromarcia non sgancia grazie alla forma delle pale)
+//  poi procede con il passo successivo.
+// ============================================================
+
+void dispenseKit() {
+  int nextAngle = servoAngle + SERVO_STEP;
+  if (nextAngle > 170) {
+    // Wrap: ritorno rapido a 0° senza sgancio
+    medikitServo.write(0);
+    delay(400);
+    servoAngle = 0;
+    nextAngle  = SERVO_STEP;
+  }
+  medikitServo.write(nextAngle);
+  servoAngle = nextAngle;
+  delay(600);
+}
+
+// ============================================================
 //  SOCCORSO FISICO
 // ============================================================
 
@@ -404,28 +454,36 @@ void handleRescue(char pos, int tipo) {
     return;
   }
 
-  const char* gravita[] = {"", "ILLESA", "STABILE", "GRAVE"};
-  lcdShow("SOCCORSO " + String(pos), String(gravita[tipo]) + " " + String(tipo) + " kit");
-  dbg("Soccorso pos=" + String(pos) + " tipo=" + String(tipo)
-      + " (" + String(gravita[tipo]) + ")");
+  // tipo=1 → OMEGA (0 kit), tipo=2 → PHI (1 kit), tipo=3 → PSI (2 kit)
+  const char* nomi[]   = {"", "OMEGA",  "PHI",   "PSI"};
+  const int   kits[]   = {  0,      0,      1,       2};  // kit da erogare per tipo
+  int numKit = kits[tipo];
 
-  digitalWrite(LED_STATUS, HIGH);
+  lcdShow("VITTIMA " + String(nomi[tipo]), String(numKit) + " kit  pos:" + String(pos));
+  dbg("Vittima " + String(nomi[tipo]) + " pos=" + String(pos)
+      + " kit=" + String(numKit));
 
-  if      (pos == 'R') rotate(-90);
-  else if (pos == 'L') rotate( 90);
-  else if (pos == 'F') rotate(180);
+  blinkVictim();   // lampeggia LED + LCD per segnalare vittima rilevata
 
-  for (int i = 0; i < tipo; i++) {
-    lcdShow("EROGAZ. KIT", String(i+1) + "/" + String(tipo));
-    dbg("Erogo kit " + String(i+1) + "/" + String(tipo));
-    medikitServo.write(0);   delay(1000);
-    medikitServo.write(90);  delay(500);
+  // Rotazione e dispense solo se ci sono kit da erogare
+  if (numKit > 0) {
+    if      (pos == 'R') rotate(-90);
+    else if (pos == 'L') rotate( 90);
+    else if (pos == 'F') rotate(180);
+
+    for (int i = 0; i < numKit; i++) {
+      lcdShow("EROGAZ. KIT", String(i+1) + "/" + String(numKit));
+      dbg("Erogo kit " + String(i+1) + "/" + String(numKit)
+          + " → servo " + String(servoAngle) + "° → "
+          + String(servoAngle + SERVO_STEP) + "°");
+      dispenseKit();
+    }
+
+    lcdShow("RIENTRO ORI.", "");
+    if      (pos == 'R') rotate( 90);
+    else if (pos == 'L') rotate(-90);
+    else if (pos == 'F') rotate(180);
   }
-
-  lcdShow("RIENTRO ORI.", "");
-  if      (pos == 'R') rotate( 90);
-  else if (pos == 'L') rotate(-90);
-  else if (pos == 'F') rotate(180);
 
   digitalWrite(LED_STATUS, LOW);
   dbg("Soccorso completato");
@@ -525,7 +583,8 @@ void setup() {
   mpu.calcOffsets();
 
   medikitServo.attach(SERVO_PIN);
-  medikitServo.write(90);
+  medikitServo.write(0);   // pala in posizione di riposo (angolo 0°)
+  servoAngle = 0;
 
   // Inizializza cache ToF
   tof.ts = 0;

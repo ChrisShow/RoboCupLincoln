@@ -118,8 +118,9 @@ class VisionSystem:
             print(f"[VISION] ATTENZIONE: modello non trovato in {model_path}")
 
         # Mappatura classi v3: 0:FAKE, 1:OMEGA, 2:PHI, 3:PSI
-        # mappa_tipi: nome_classe → TIPO kit (1=illesa, 2=stabile, 3=grave)
-        self.mappa_tipi = {"PHI": 3, "PSI": 2, "OMEGA": 1}
+        # TIPO → kit erogati: OMEGA=1→0kit, PHI=2→1kit, PSI=3→2kit
+        # FAKE: rilevato ma solo loggato, nessun comando VIC inviato
+        self.mappa_tipi = {"OMEGA": 1, "PHI": 2, "PSI": 3}
 
     def scan_wall(self, pos, cap, n_frames=3):
         """
@@ -131,8 +132,9 @@ class VisionSystem:
             return []
 
         target_scelto = None
-        max_conf = 0.0
-        best_frame = None
+        max_conf     = 0.0
+        best_frame   = None
+        fake_conf    = 0.0   # tracciato separatamente: loggato ma non restituito
 
         for i in range(n_frames):
             # Scarta 1 frame stantio tra ogni scatto
@@ -150,21 +152,27 @@ class VisionSystem:
 
             for box in results[0].boxes:
                 cls_name = results[0].names[int(box.cls[0])]
-                conf = float(box.conf[0])
-                if cls_name in self.mappa_tipi and conf > max_conf:
-                    max_conf = conf
+                conf     = float(box.conf[0])
+                if cls_name == "FAKE" and conf > fake_conf:
+                    fake_conf = conf
+                elif cls_name in self.mappa_tipi and conf > max_conf:
+                    max_conf      = conf
                     target_scelto = cls_name
-                    best_frame = frame
+                    best_frame    = frame
 
         if target_scelto:
             tipo = self.mappa_tipi[target_scelto]
-            print(f"[VISION] {target_scelto} su parete {pos} — "
-                  f"conf {max_conf*100:.1f}% su {n_frames} frame — TIPO={tipo}")
+            log("VIS", f"{target_scelto} su parete {pos} — "
+                f"conf {max_conf*100:.1f}% — TIPO={tipo}")
             if SAVE_FOR_TRAINING and SAVE_DIR and best_frame is not None:
                 ts = int(time.time() * 1000)
                 cv2.imwrite(os.path.join(SAVE_DIR,
                             f"{ts}_{pos}_{target_scelto}.jpg"), best_frame)
             return [(tipo, pos)]
+
+        if fake_conf > 0:
+            log("VIS", f"FAKE rilevato su parete {pos} — "
+                f"conf {fake_conf*100:.1f}% — ignorato, nessun kit erogato")
 
         return []
 
@@ -437,7 +445,7 @@ def main():
             if vittime:
                 log("VIS", f"Vittime trovate: {len(vittime)}")
                 for v_tipo, v_pos in vittime:
-                    TIPI = {1: "ILLESA(Omega)", 2: "STABILE(Psi)", 3: "GRAVE(Phi)"}
+                    TIPI = {1: "OMEGA(0 kit)", 2: "PHI(1 kit)", 3: "PSI(2 kit)"}
                     log("VIS", f"  → Parete {v_pos}: {TIPI.get(v_tipo, '?')} (tipo {v_tipo})")
             else:
                 log("VIS", "Nessuna vittima rilevata")

@@ -61,14 +61,31 @@ La comunicazione avviene tramite pacchetti racchiusi tra `<` e `>`.
 4.  **Soccorso Fisico:**
 ---
 
-## 4. SPECIFICHE FISICHE E RICALCOLO SOGLIE (Versione 22cm)
-A causa dell'installazione del sensore di colore frontale, la lunghezza del robot è passata da 17cm a **22cm**. 
+## 4. SPECIFICHE FISICHE E SOGLIE (Versione Definitiva 22cm)
 
-**Ricalcolo distanze al centro cella (30x30cm):**
-*   **Distanza Centro-Bordo:** 11.0 cm (22 / 2).
-*   **Distanza ToF -> Muro:** 4.0 cm (15 - 11).
-*   **TARGET_FRONT_DIST:** Impostata a **4.0 cm** per l'arresto al centro della cella.
-*   **SOGLIA_MURO_FRONT:** Ridotta a **9.0 cm** per evitare falsi rilevamenti di muri distanti.
+**Geometria robot:**
+| Componente | Posizione dal centro rotazione |
+|---|---|
+| Scocca | 17cm × 10cm |
+| Front ToF (bordo scocca ant.) | 8.5cm avanti |
+| Rear ToF (bordo scocca post.) | 8.5cm dietro |
+| Side ToF (bordo scocca lat.) | 5.0cm lateralmente |
+| Sensore colore (punta) | 12.5cm avanti (+4cm oltre Front ToF) |
+| Medikit (punta) | 9.5cm dietro (+1cm oltre Rear ToF) |
+| Ruote (punta) | 8.0cm lateralmente (+3cm oltre Side ToF) |
+
+**Letture ToF al centro cella (celle 30×30cm, centro = 15cm da ogni muro):**
+| Sensore | Formula | Valore |
+|---|---|---|
+| Front ToF → muro frontale | 15 - 8.5 | **6.5 cm** → `TARGET_FRONT_DIST` |
+| Side ToF → muro laterale | 15 - 5.0 | **10.0 cm** → `TARGET_LAT_DIST` |
+| Sensore colore → muro front. | 15 - 12.5 | **2.5 cm** (clearance sicura) |
+| Ruote → muro laterale | 15 - 8.0 | **7.0 cm** (contatto a 3cm dal Side ToF) |
+
+**Soglie di rilevamento:**
+*   **SOGLIA_MURO_FRONT = 25.0 cm:** Discrimina muro presente (6.5cm) da apertura (36.5cm+). Usata anche nella rilevazione *dinamica* durante `moveForward()`: quando il ToF frontale scende sotto 25cm durante il moto, il muro della cella successiva è entrato nel range e il robot inizia a tracciarlo fino al punto di stop (6.5cm).
+*   **SOGLIA_MURO_LAT = 18.0 cm:** Discrimina muro presente (10cm) da apertura (40cm+).
+*   **DIST_PERICOLO_RUOTA = 4.5 cm:** Side ToF a 4.5cm = ruota a 1.5cm dal muro. Contatto avviene a 3.0cm.
 
 **Posizionamento Sensore Colore:**
-*   Il sensore è montato sul fronte (11cm dal centro). Quando rileva il Nero (inizio cella successiva), il centro del robot si trova a circa 19cm dall'inizio della cella corrente. La logica di rientro automatico (`moveCounter * 20ms`) rimane valida per riportare il robot al centro della cella precedente.
+*   Il sensore è a 12.5cm dal centro rotazione. Raggiunge il bordo della cella successiva quando il centro ha percorso 15 - 12.5 = **2.5cm**. La retromarcia (`moveCounter * 20ms`) riporta il robot al centro della cella precedente.

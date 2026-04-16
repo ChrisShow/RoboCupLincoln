@@ -110,6 +110,11 @@ const int RAMP_EXIT_CYCLES  = 185;  // ~3.7s = 60cm su rampa
 const int RAMP_BOOST_PWM    = 220;
 const int RAMP_BRAKE_PWM    =  80;
 
+// ---------------------------------------------------------------
+// Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
+// ---------------------------------------------------------------
+const int SERVO_STEP = 40;
+
 // --- GLOBALI ---
 RobotConfig config;
 ToFCache    tof;
@@ -124,6 +129,7 @@ int xshutPins[] = {
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo             medikitServo;
 
+int           servoAngle  = 0;
 bool          isRunning   = false;
 int           moveCounter = 0;
 unsigned long lastMoveTime = 0;
@@ -382,6 +388,40 @@ void moveForward() {
 }
 
 // ============================================================
+//  SEGNALAZIONE VITTIMA — lampeggio LED + retroilluminazione LCD
+// ============================================================
+
+void blinkVictim(int times = 5, int onMs = 250, int offMs = 200) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(LED_STATUS, HIGH);
+    lcd.backlight();
+    delay(onMs);
+    digitalWrite(LED_STATUS, LOW);
+    lcd.noBacklight();
+    delay(offMs);
+  }
+  digitalWrite(LED_STATUS, HIGH);
+  lcd.backlight();
+}
+
+// ============================================================
+//  EROGAZIONE SINGOLO MEDIKIT
+// ============================================================
+
+void dispenseKit() {
+  int nextAngle = servoAngle + SERVO_STEP;
+  if (nextAngle > 170) {
+    medikitServo.write(0);
+    delay(400);
+    servoAngle = 0;
+    nextAngle  = SERVO_STEP;
+  }
+  medikitServo.write(nextAngle);
+  servoAngle = nextAngle;
+  delay(600);
+}
+
+// ============================================================
 //  SOCCORSO FISICO
 // ============================================================
 
@@ -392,28 +432,34 @@ void handleRescue(char pos, int tipo) {
     return;
   }
 
-  const char* gravita[] = {"", "ILLESA", "STABILE", "GRAVE"};
-  lcdShow("SOCCORSO " + String(pos), String(gravita[tipo]) + " " + String(tipo) + " kit");
-  dbg("Soccorso pos=" + String(pos) + " tipo=" + String(tipo)
-      + " (" + String(gravita[tipo]) + ")");
+  const char* nomi[] = {"", "OMEGA",  "PHI",  "PSI"};
+  const int   kits[] = {  0,      0,      1,      2};
+  int numKit = kits[tipo];
 
-  digitalWrite(LED_STATUS, HIGH);
+  lcdShow("VITTIMA " + String(nomi[tipo]), String(numKit) + " kit  pos:" + String(pos));
+  dbg("Vittima " + String(nomi[tipo]) + " pos=" + String(pos)
+      + " kit=" + String(numKit));
 
-  if      (pos == 'R') rotate(-90);
-  else if (pos == 'L') rotate( 90);
-  else if (pos == 'F') rotate(180);
+  blinkVictim();
 
-  for (int i = 0; i < tipo; i++) {
-    lcdShow("EROGAZ. KIT", String(i+1) + "/" + String(tipo));
-    dbg("Erogo kit " + String(i+1) + "/" + String(tipo));
-    medikitServo.write(0);  delay(1000);
-    medikitServo.write(90); delay(500);
+  if (numKit > 0) {
+    if      (pos == 'R') rotate(-90);
+    else if (pos == 'L') rotate( 90);
+    else if (pos == 'F') rotate(180);
+
+    for (int i = 0; i < numKit; i++) {
+      lcdShow("EROGAZ. KIT", String(i+1) + "/" + String(numKit));
+      dbg("Erogo kit " + String(i+1) + "/" + String(numKit)
+          + " → servo " + String(servoAngle) + "° → "
+          + String(servoAngle + SERVO_STEP) + "°");
+      dispenseKit();
+    }
+
+    lcdShow("RIENTRO ORI.", "");
+    if      (pos == 'R') rotate( 90);
+    else if (pos == 'L') rotate(-90);
+    else if (pos == 'F') rotate(180);
   }
-
-  lcdShow("RIENTRO ORI.", "");
-  if      (pos == 'R') rotate( 90);
-  else if (pos == 'L') rotate(-90);
-  else if (pos == 'F') rotate(180);
 
   digitalWrite(LED_STATUS, LOW);
   dbg("Soccorso completato");
@@ -510,7 +556,8 @@ void setup() {
   delay(1500);
 
   medikitServo.attach(SERVO_PIN);
-  medikitServo.write(90);
+  medikitServo.write(0);   // pala in posizione di riposo (angolo 0°)
+  servoAngle = 0;
 
   tof.ts = 0;
 
