@@ -92,6 +92,23 @@ const int ROT_SETTLE = 200;
 const int BASE_SPEED = 90;
 
 // ---------------------------------------------------------------
+// Parametri avanzamento
+//   SOGLIA_LENTA     : distanza frontale sotto cui si rallenta
+//   SLOW_SPEED       : PWM in zona rallentamento (±20 dal target)
+//   MOVE_TIMEOUT_MS  : timeout assoluto avanzamento (evita blocchi)
+//   BLACK_IGNORE_MS  : ms iniziali in cui ignora cella nera
+//                      (il sensore colore è ancora sulla cella precedente)
+//   BLACK_CONFIRM    : letture consecutive nere prima di confermare
+//   STOP_CONFIRM     : tick consecutivi con dF≤TARGET prima di fermarsi
+// ---------------------------------------------------------------
+const float        SOGLIA_LENTA      = 12.0;
+const int          SLOW_SPEED        =  55;
+const unsigned long MOVE_TIMEOUT_MS  = 3000UL;
+const unsigned long BLACK_IGNORE_MS  =  250UL;
+const int          BLACK_CONFIRM     =    2;
+const int          STOP_CONFIRM      =    2;
+
+// ---------------------------------------------------------------
 // Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
 // ---------------------------------------------------------------
 const int SERVO_STEP = 40;
@@ -230,10 +247,16 @@ void rotate(float rel_deg) {
   lcdShow("ROTAZIONE", dirStr);
   dbg("Rotazione " + dirStr + " durata=" + String(duration) + "ms");
 
-  if (destra) setMotors( ROT_SPEED, -ROT_SPEED);
-  else        setMotors(-ROT_SPEED,  ROT_SPEED);
+  // Fase 1 (80%): velocità piena
+  if (destra) setMotors( ROT_SPEED,     -ROT_SPEED);
+  else        setMotors(-ROT_SPEED,      ROT_SPEED);
+  delay(duration * 4 / 5);
 
-  delay(duration);
+  // Fase 2 (20%): velocità dimezzata — smaltisce l'inerzia di uscita
+  if (destra) setMotors( ROT_SPEED / 2, -ROT_SPEED / 2);
+  else        setMotors(-ROT_SPEED / 2,  ROT_SPEED / 2);
+  delay(duration / 5);
+
   stopMotors();
   delay(ROT_SETTLE);
   dbg("Rotazione OK");
@@ -244,19 +267,32 @@ void rotate(float rel_deg) {
 // ============================================================
 
 void scanSensors() {
-  tof.ts = 0;
-  updateToF();
+  // Pausa stabilizzazione post-stop, poi media su 3 letture per robustezza
+  delay(40);
+  float sumF = 0, sumR = 0, sumL = 0;
+  for (int i = 0; i < 3; i++) {
+    tof.ts = 0; updateToF();
+    sumF += tof.front;
+    sumR += (tof.ra + tof.rp) / 2.0f;
+    sumL += (tof.la + tof.lp) / 2.0f;
+    delay(8);
+  }
+  float avgF = sumF / 3.0f;
+  float avgR = sumR / 3.0f;
+  float avgL = sumL / 3.0f;
 
+  tof.ts = 0; updateToF();   // cache fresca
   int c = getDetectedColor();
-  int F = (tof.front <= SOGLIA_MURO_FRONT) ? 1 : 0;
-  int R = (((tof.ra + tof.rp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
-  int L = (((tof.la + tof.lp) / 2.0f) <= SOGLIA_MURO_LAT) ? 1 : 0;
+
+  int F = (avgF <= SOGLIA_MURO_FRONT) ? 1 : 0;
+  int R = (avgR <= SOGLIA_MURO_LAT)   ? 1 : 0;
+  int L = (avgL <= SOGLIA_MURO_LAT)   ? 1 : 0;
 
   const char* colori[] = {"NORM","----","----","BLUE","BLCK"};
   String muri = "F:"; muri += F; muri += " R:"; muri += R; muri += " L:"; muri += L;
   lcdShow("SCAN " + muri, "Col:" + String(colori[c]));
-  dbg("SCAN F:" + String(tof.front,1) + "cm R:" + String((tof.ra+tof.rp)/2,1)
-      + "cm L:" + String((tof.la+tof.lp)/2,1) + "cm Col:" + String(c));
+  dbg("SCAN F:" + String(avgF,1) + "cm R:" + String(avgR,1)
+      + "cm L:" + String(avgL,1) + "cm Col:" + String(c));
 
   Serial.println("<DATA:" + String(c) + "," + String(F) + String(R) + String(L) + ">");
 }
@@ -273,37 +309,53 @@ void moveForward() {
   lastMoveTime = millis();
 
   updateToF();
-  float dF_start = tof.front;
-  float dB_start = tof.back;
-  bool  wallFront = (dF_start < SOGLIA_MURO_FRONT);
-  bool  wallBack  = (dB_start < 15.0f);
+  float dF_start   = tof.front;
+  float dB_start   = tof.back;
+  bool  wallFront  = (dF_start < SOGLIA_MURO_FRONT);
+  bool  wallBack   = (dB_start < 15.0f);
+  int   blackCount = 0;   // conferme consecutive cella nera
+  int   stopCount  = 0;   // conferme consecutive fine-cella
 
-  // Avvio motori immediatamente — il loop aggiusta il drift ogni 20ms
+  // Motori partono subito; drift verrà applicato ogni tick
   setMotors(BASE_SPEED, BASE_SPEED);
   unsigned long moveStart = millis();
 
   while (true) {
 
-    // ---- Cella nera: controllo continuo, non vincolato al tick ----
-    // Il sensore colore è 12.5cm avanti → rileva la cella successiva
-    // appena il robot inizia a spostarsi. La retromarcia usa lo stesso
-    // tempo trascorso in avanzamento così la distanza percorsa è identica.
-    if (getDetectedColor() == 4) {
-      stopMotors();
-      unsigned long elapsed = millis() - moveStart;
-      lcdShow("CELLA NERA!", "Ritorno...");
-      dbg("Cella NERA! Retromarcia " + String(elapsed) + "ms");
-      setMotors(-BASE_SPEED, -BASE_SPEED);
-      delay(elapsed);
-      stopMotors();
-      lcdShow("CELLA NERA", "Rientrato OK");
-      dbg("Rientro completato");
-      Serial.println("<MOVE:BLACK>");
-      scanSensors();
-      return;
+    // ================================================================
+    //  RILEVAMENTO CELLA NERA — continuo, non vincolato al tick 20ms
+    //
+    //  Finestra iniziale BLACK_IGNORE_MS: il sensore colore è 12.5cm
+    //  avanti e all'avvio si trova ancora sulla cella corrente.
+    //  Richiediamo BLACK_CONFIRM letture consecutive per evitare
+    //  falsi positivi da riflessioni o bordi di transizione.
+    // ================================================================
+    if (millis() - moveStart > BLACK_IGNORE_MS) {
+      if (getDetectedColor() == 4) {
+        blackCount++;
+        if (blackCount >= BLACK_CONFIRM) {
+          stopMotors();
+          unsigned long elapsed = millis() - moveStart;
+          lcdShow("CELLA NERA!", "Ritorno...");
+          dbg("Cella NERA (x" + String(blackCount)
+              + ") retromarcia " + String(elapsed) + "ms");
+          setMotors(-BASE_SPEED, -BASE_SPEED);
+          delay(elapsed);
+          stopMotors();
+          lcdShow("CELLA NERA", "Rientrato OK");
+          dbg("Rientro completato");
+          Serial.println("<MOVE:BLACK>");
+          scanSensors();
+          return;
+        }
+      } else {
+        blackCount = 0;   // reset se la lettura non conferma
+      }
     }
 
-    // ---- Tick di controllo ogni 20ms (anti-drift + fine cella) ----
+    // ================================================================
+    //  TICK DI CONTROLLO 20ms — anti-drift + fine cella
+    // ================================================================
     if (millis() - lastMoveTime < 20) continue;
     lastMoveTime = millis();
     moveCounter++;
@@ -311,7 +363,13 @@ void moveForward() {
     updateToF();
     float ra = tof.ra, rp = tof.rp;
     float la = tof.la, lp = tof.lp;
+    float dF = tof.front;
+    float dB = tof.back;
 
+    // Aggiorna rilevazione dinamica muro frontale
+    if (!wallFront && dF < SOGLIA_MURO_FRONT) wallFront = true;
+
+    // ---- Anti-drift con clamping dinamico ----
     float drift = 0;
     bool hasMuroR = (ra < SOGLIA_MURO_LAT);
     bool hasMuroL = (la < SOGLIA_MURO_LAT);
@@ -328,23 +386,37 @@ void moveForward() {
       drift = (TARGET_LAT_DIST - la) * 10.0f + angle_err * 4.0f;
     }
 
-    if (ra < DIST_PERICOLO_RUOTA || rp < DIST_PERICOLO_RUOTA) drift = -60;
-    if (la < DIST_PERICOLO_RUOTA || lp < DIST_PERICOLO_RUOTA) drift =  60;
+    // Velocità corrente: riduce nell'area di avvicinamento al muro
+    int spd = (wallFront && dF < SOGLIA_LENTA) ? SLOW_SPEED : BASE_SPEED;
 
-    setMotors(BASE_SPEED + drift, BASE_SPEED - drift);
+    // Emergenze contatto ruota: override immediato; altrimenti clamp drift
+    if      (ra < DIST_PERICOLO_RUOTA || rp < DIST_PERICOLO_RUOTA) drift = -(spd - 20);
+    else if (la < DIST_PERICOLO_RUOTA || lp < DIST_PERICOLO_RUOTA) drift =  (spd - 20);
+    else    drift = constrain(drift, -(spd - 20), (spd - 20));
 
-    // ---- Condizioni di fine cella ----
-    float dF = tof.front;
-    float dB = tof.back;
+    setMotors(spd + (int)drift, spd - (int)drift);
 
-    if (!wallFront && dF < SOGLIA_MURO_FRONT) wallFront = true;
-    if (wallFront && dF <= TARGET_FRONT_DIST)          break;
-    if (wallBack  && dB >= (dB_start + 29.5f))         break;
-    if (!wallFront && !wallBack && moveCounter >= 90)  break;
+    // ---- Fine cella: STOP_CONFIRM tick consecutivi con dF ≤ TARGET ----
+    if (wallFront && dF <= TARGET_FRONT_DIST) {
+      if (++stopCount >= STOP_CONFIRM) break;
+    } else {
+      stopCount = 0;
+    }
+
+    // ---- Fine cella: muro posteriore percorso ~30cm ----
+    if (wallBack && dB >= (dB_start + 29.5f)) break;
+
+    // ---- Timeout assoluto ----
+    if (millis() - moveStart >= MOVE_TIMEOUT_MS) {
+      dbg("TIMEOUT avanzamento " + String(MOVE_TIMEOUT_MS) + "ms");
+      break;
+    }
   }
 
   stopMotors();
-  dbg("Avanzamento OK  F:" + String(tof.front,1) + "cm cnt=" + String(moveCounter));
+  dbg("Avanzamento OK  F:" + String(tof.front,1)
+      + "cm cnt=" + String(moveCounter)
+      + " t=" + String(millis() - moveStart) + "ms");
   lcdShow("AVANZ. OK", "F:" + String(tof.front,1) + "cm");
   Serial.println("<MOVE:OK>");
   scanSensors();
