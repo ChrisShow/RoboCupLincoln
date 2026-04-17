@@ -3,11 +3,9 @@
  * File:     servo_test.ino
  * Scopo:    Test meccanismo medikit SG90
  *
- *   Avvio  : servo portato lentamente a 0° (da posizione neutra 90°)
- *   Pulsante: ogni pressione avanza il servo di 40° nella stessa direzione
- *             Superati i 170°: ripristino lento a 0° poi riprende da 40°
- *
- *   Pin e costanti identici a main_senza_mpu.ino
+ *   Avvio  : servo portato a 0° direttamente (nessuno sweep), poi detach
+ *   Pulsante: ogni pressione avanza il servo di 40° in senso orario (lentamente)
+ *             Il servo è attivo SOLO durante il movimento, poi si stacca
  */
 
 #include <Servo.h>
@@ -16,9 +14,8 @@
 #define SERVO_PIN   4
 #define BTN_START  43
 
-const int SERVO_STEP     = 40;
-const int SERVO_SLOW_MS  = 12;  // ms per grado — erogazione (40° = 480ms)
-const int SERVO_RESET_MS =  6;  // ms per grado — reset a 0 (160°→0 ≈ 960ms)
+const int SERVO_STEP    = 40;
+const int SERVO_SLOW_MS = 12;  // ms per grado — 40° = 480ms totali
 
 Servo             medikitServo;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -26,33 +23,13 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 int servoAngle = 0;
 
 // ----------------------------------------------------------------
-void servoSlowMove(int target, int msPerDeg = SERVO_SLOW_MS) {
+void servoSlowMove(int target) {
   target = constrain(target, 0, 180);
   while (servoAngle != target) {
     servoAngle += (target > servoAngle) ? 1 : -1;
     medikitServo.write(servoAngle);
-    delay(msPerDeg);
+    delay(SERVO_SLOW_MS);
   }
-}
-
-// ----------------------------------------------------------------
-void dispenseKit() {
-  int nextAngle = servoAngle + SERVO_STEP;
-
-  if (nextAngle > 170) {
-    lcd.clear(); lcd.print("RESET  0deg");
-    lcd.setCursor(0, 1); lcd.print(String(servoAngle) + "deg -> 0deg");
-    servoSlowMove(0, SERVO_RESET_MS);
-    nextAngle = SERVO_STEP;
-  }
-
-  lcd.clear(); lcd.print("EROGAZIONE");
-  lcd.setCursor(0, 1);
-  lcd.print(String(servoAngle) + ">" + String(nextAngle) + "deg");
-  servoSlowMove(nextAngle);
-
-  lcd.clear(); lcd.print("OK " + String(servoAngle) + "deg");
-  lcd.setCursor(0, 1); lcd.print("Premi per next");
 }
 
 // ----------------------------------------------------------------
@@ -61,30 +38,45 @@ void setup() {
   pinMode(BTN_START, INPUT_PULLUP);
 
   lcd.init(); lcd.backlight();
-  lcd.print("SERVO TEST");
+  lcd.clear(); lcd.print("SERVO TEST");
   lcd.setCursor(0, 1); lcd.print("Init...");
 
+  // Posiziona a 0° senza sweep, poi stacca il PWM
   medikitServo.attach(SERVO_PIN);
-  medikitServo.write(90);
-  servoAngle = 90;
-  delay(400);
+  medikitServo.write(0);
+  servoAngle = 0;
+  delay(600);
+  medikitServo.detach();
 
-  lcd.clear(); lcd.print("INIT: 90->0deg");
-  servoSlowMove(0);   // porta lentamente a 0 (≈ 1.1s)
-
-  lcd.clear(); lcd.print("PRONTO");
+  lcd.clear(); lcd.print("PRONTO a 0deg");
   lcd.setCursor(0, 1); lcd.print("Premi START");
-  Serial.println("Servo test pronto. Premi BTN_START per erogare.");
+  Serial.println("Pronto. Premi BTN_START per +40deg.");
 }
 
 // ----------------------------------------------------------------
 void loop() {
   if (digitalRead(BTN_START) == LOW) {
-    delay(50);                          // debounce
+    delay(50);                                   // debounce
     if (digitalRead(BTN_START) == LOW) {
-      dispenseKit();
-      Serial.println("Servo ora a " + String(servoAngle) + " gradi");
-      while (digitalRead(BTN_START) == LOW);  // aspetta rilascio
+
+      int nextAngle = servoAngle + SERVO_STEP;
+      if (nextAngle > 180) nextAngle = 180;      // clamp — non supera 180°
+
+      lcd.clear(); lcd.print("GIRO +40deg");
+      lcd.setCursor(0, 1);
+      lcd.print(String(servoAngle) + " -> " + String(nextAngle) + "deg");
+
+      medikitServo.attach(SERVO_PIN);
+      delay(50);                                 // stabilizzazione post-attach
+      servoSlowMove(nextAngle);
+      delay(200);                                // mantieni posizione
+      medikitServo.detach();                     // stop PWM
+
+      lcd.clear(); lcd.print("OK " + String(servoAngle) + "deg");
+      lcd.setCursor(0, 1); lcd.print("Premi per +40deg");
+      Serial.println("Servo a " + String(servoAngle) + " gradi");
+
+      while (digitalRead(BTN_START) == LOW);    // aspetta rilascio
       delay(100);
     }
   }
