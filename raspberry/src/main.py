@@ -502,7 +502,7 @@ def main():
         # ------------------------------------------------------------------ #
         elif msg == "<MOVE:BLACK>":
             curr = (robot.x, robot.y)
-            abs_d = (robot.orientation + robot.last_move) % 4
+            abs_d = (robot.orientation + 1) % 4
             if curr in robot.map:
                 robot.map[curr].walls[abs_d] = True
             if robot.stack and robot.stack[-1] == curr:
@@ -517,7 +517,7 @@ def main():
         # ------------------------------------------------------------------ #
         elif msg == "<MOVE:STUCK>":
             curr = (robot.x, robot.y)
-            abs_d = (robot.orientation + robot.last_move) % 4
+            abs_d = (robot.orientation + 1) % 4
             if curr in robot.map:
                 robot.map[curr].walls[abs_d] = True
             if robot.stack and robot.stack[-1] == curr:
