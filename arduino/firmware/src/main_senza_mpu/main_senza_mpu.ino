@@ -83,9 +83,9 @@ const float DIST_PERICOLO_RUOTA =  4.5;
 //   ROT_180_MS  : ms per 180° (tipico: ~2 × ROT_90_MS)
 //   ROT_SETTLE  : pausa post-rotazione per stabilizzarsi
 // ---------------------------------------------------------------
-const int ROT_SPEED  = 185;
-const int ROT_90_MS  = 550;
-const int ROT_180_MS = 900;
+const int ROT_SPEED  = 203;
+const int ROT_90_MS  = 500;
+const int ROT_180_MS = 1000;
 const int ROT_SETTLE = 100;
 
 // Velocità di crociera costante
