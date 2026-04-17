@@ -334,7 +334,6 @@ void moveForward() {
   if (tof.front <= FRONT_STUCK_THR) {
     lcdShow("STUCK pre-move", "F:" + String(tof.front,1) + "cm");
     dbg("STUCK pre-move: front=" + String(tof.front,1) + "cm <= " + String(FRONT_STUCK_THR));
-    setMotors(-BASE_SPEED, -BASE_SPEED);
     delay(BACKUP_MS);
     stopMotors();
     Serial.println("<MOVE:STUCK>");
@@ -461,7 +460,7 @@ void moveForward() {
     // ----------------------------------------------------------------
     lcdShow("STUCK!", "Backup " + String(BACKUP_MS) + "ms");
     dbg("STUCK: backup " + String(BACKUP_MS) + "ms poi MOVE:STUCK");
-    setMotors(-BASE_SPEED, -BASE_SPEED);
+    setMotors(-BASE_SPEED, +BASE_SPEED*2);
     delay(BACKUP_MS);
     stopMotors();
     Serial.println("<MOVE:STUCK>");
