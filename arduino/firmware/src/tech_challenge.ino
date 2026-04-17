@@ -66,19 +66,19 @@ struct ToFCache {
 const long  MAGIC_TC       = 0xBEEF5678;
 const int   TOF_REFRESH_MS = 15;
 
-const float SOGLIA_MURO_FRONT   = 10.0;
+const float SOGLIA_MURO_FRONT   =  4.0;
 const float SOGLIA_MURO_LAT     = 15.0;
 const float TARGET_LAT_DIST     = 10.0;
 const float TARGET_FRONT_DIST   =  4.0;
 const float DIST_PERICOLO_RUOTA =  4.5;
 
 // Rotazione — stesse di main_senza_mpu.ino
-const int ROT_SPEED  = 185;
-const int ROT_90_MS  = 550;
-const int ROT_180_MS = 900;
+const int ROT_SPEED  = 203;
+const int ROT_90_MS  = 500;
+const int ROT_180_MS = 1000;
 const int ROT_SETTLE = 100;
 
-const int BASE_SPEED = 60;
+const int BASE_SPEED = 75;
 
 const float        SOGLIA_LENTA     = 12.0;
 const int          SLOW_SPEED       =  55;
@@ -97,6 +97,13 @@ const int SERVO_RESET_MS =  4;
 // Lampeggio Zona B
 const int BLINK_ON_MS  = 500;
 const int BLINK_OFF_MS = 500;
+
+// Geometria cella
+// Cella 30cm + profilo muro ~3cm → robot percorre ~32.5cm per cella
+const float CELL_TRAVEL_CM  = 32.5f;
+// Avanzamento pre-giro Zona A: robot si porta al centro della tile
+// colorata prima di girare (~10cm). Regola in base alla velocità reale.
+const int   TILE_CENTER_MS  = 400;    // ms a BASE_SPEED=60 ≈ 10cm
 
 // --- GLOBALI ---
 TechConfig config;
@@ -327,7 +334,7 @@ void moveForward() {
       if (++stopCount >= STOP_CONFIRM) break;
     } else stopCount = 0;
 
-    if (wallBack && dB >= (dB_start + 29.5f)) break;
+    if (wallBack && dB >= (dB_start + CELL_TRAVEL_CM)) break;
 
     if (millis() - moveStart >= MOVE_TIMEOUT_MS) {
       dbg("TIMEOUT — STUCK"); stuck = true; break;
@@ -357,6 +364,21 @@ void servoSlowMove(int target, int msPerDeg = SERVO_SLOW_MS) {
     medikitServo.write(servoAngle);
     delay(msPerDeg);
   }
+}
+
+// ============================================================
+//  AVANZAMENTO BREVE — pre-giro Zona A
+//  Porta il robot al centro della tile colorata prima di girare.
+//  Durata: TILE_CENTER_MS ms a velocità BASE_SPEED (~10cm).
+// ============================================================
+
+void advanceShort() {
+  lcdShow("ADV 10cm", "pre-giro...");
+  dbg("Avanzamento breve " + String(TILE_CENTER_MS) + "ms");
+  setMotors(BASE_SPEED, BASE_SPEED);
+  delay(TILE_CENTER_MS);
+  stopMotors();
+  delay(100);   // assestamento
 }
 
 void dispenseKit() {
@@ -422,6 +444,10 @@ void handleCommand(String cmd) {
       delay(300);
     }
     Serial.println("<DROP:DONE>");
+  }
+  else if (cmd == "ADV10") {
+    advanceShort();
+    Serial.println("<ADV:DONE>");
   }
   else if (cmd == "SCAN:FRONT") {
     lcdShow("SCAN FRONT", "-90deg");
