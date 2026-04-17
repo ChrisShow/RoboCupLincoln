@@ -19,8 +19,8 @@
 #define BTN_START 43
 
 // --- COSTANTI ROTAZIONE — stesse di main_senza_mpu.ino ---
-const int ROT_SPEED  = 185;   // PWM durante rotazione
-const int ROT_90_MS  = 550;   // ms per 90° — regola questo
+const int ROT_SPEED  = 203;   // PWM durante rotazione
+const int ROT_90_MS  = 500;   // ms per 90° — regola questo
 const int ROT_SETTLE = 100;   // pausa post-rotazione
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);

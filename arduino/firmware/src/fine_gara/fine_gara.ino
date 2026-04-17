@@ -83,9 +83,9 @@ const float DIST_PERICOLO_RUOTA =  4.5;
 //   ROT_180_MS  : ms per 180° (tipico: ~2 × ROT_90_MS)
 //   ROT_SETTLE  : pausa post-rotazione per stabilizzarsi
 // ---------------------------------------------------------------
-const int ROT_SPEED  = 185;
-const int ROT_90_MS  = 550;
-const int ROT_180_MS = 900;
+const int ROT_SPEED  = 203;
+const int ROT_90_MS  = 500;
+const int ROT_180_MS = 1000;
 const int ROT_SETTLE = 100;
 
 // Velocità di crociera costante
@@ -334,7 +334,6 @@ void moveForward() {
   if (tof.front <= FRONT_STUCK_THR) {
     lcdShow("STUCK pre-move", "F:" + String(tof.front,1) + "cm");
     dbg("STUCK pre-move: front=" + String(tof.front,1) + "cm <= " + String(FRONT_STUCK_THR));
-    setMotors(-BASE_SPEED, -BASE_SPEED);
     delay(BACKUP_MS);
     stopMotors();
     Serial.println("<MOVE:STUCK>");
@@ -461,7 +460,7 @@ void moveForward() {
     // ----------------------------------------------------------------
     lcdShow("STUCK!", "Backup " + String(BACKUP_MS) + "ms");
     dbg("STUCK: backup " + String(BACKUP_MS) + "ms poi MOVE:STUCK");
-    setMotors(-BASE_SPEED, -BASE_SPEED);
+    setMotors(-BASE_SPEED, +BASE_SPEED*2);
     delay(BACKUP_MS);
     stopMotors();
     Serial.println("<MOVE:STUCK>");
