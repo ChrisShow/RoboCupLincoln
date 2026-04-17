@@ -40,6 +40,41 @@ TILE_NOMI = {0: 'NORM', 1: 'GRIGIO(CP)', 2: 'ROSSA(dx)', 3: 'BLU(sx)'}
 # --- BANDIERE ---
 BANDIERE = ['ITALIA', 'ROMANIA', 'GERMANIA', 'AUSTRIA', 'PAESI_BASSI']
 
+# ---------------------------------------------------------------
+# Soglie rilevamento colori bandiere (pixel su immagine 120x120)
+# Aumenta se troppi falsi positivi, diminuisci se non rileva.
+# ---------------------------------------------------------------
+# Range HSV: H in [0,179], S in [0,255], V in [0,255]
+
+# VERDE — presente solo in Italia → identificazione immediata
+C_VERDE_H_MIN  =  38;  C_VERDE_H_MAX  =  85
+C_VERDE_S_MIN  =  70;  C_VERDE_V_MIN  =  50
+C_VERDE_SOGLIA = 200   # pixel minimi per confermare Italia
+
+# GIALLO/ORO — presente solo in Romania e Germania
+C_GIALLO_H_MIN  =  18;  C_GIALLO_H_MAX  =  38
+C_GIALLO_S_MIN  = 100;  C_GIALLO_V_MIN  = 100
+C_GIALLO_SOGLIA = 150   # pixel minimi per confermare giallo presente
+
+# ROSSO (doppio range HSV)
+C_ROSSO_H_MAX1 =  12   # range basso  [0, H_MAX1]
+C_ROSSO_H_MIN2 = 168   # range alto   [H_MIN2, 179]
+C_ROSSO_S_MIN  =  80;  C_ROSSO_V_MIN  =  60
+C_ROSSO_SOGLIA = 150
+
+# BLU — presente in Romania e Paesi Bassi
+C_BLU_H_MIN  =  95;  C_BLU_H_MAX  = 140
+C_BLU_S_MIN  =  70;  C_BLU_V_MIN  =  50
+C_BLU_SOGLIA = 150
+
+# NERO — presente in Germania
+C_NERO_V_MAX  =  55
+C_NERO_SOGLIA = 200
+
+# BIANCO — presente in Austria e Paesi Bassi
+C_BIANCO_S_MAX =  50;  C_BIANCO_V_MIN = 160
+C_BIANCO_SOGLIA = 150
+
 # ============================================================
 #  LOGGING
 # ============================================================
@@ -91,15 +126,14 @@ class Comm:
 # ============================================================
 #  CLASSIFICATORE BANDIERE (OpenCV — no YOLO)
 #
-#  Ogni bandiera è un quadrato 5cm su muro.
-#  Si usa analisi colori in HSV sulle 3 fasce (verticale o orizzontale).
+#  Logica: conta pixel per colore sull'intera immagine.
+#  La combinazione di colori presenti identifica la bandiera.
 #
-#  Strategie di identificazione:
-#   - ITALIA:      presenza di verde → unico nel pool
-#   - ROMANIA:     giallo + blu in fasce verticali
-#   - GERMANIA:    fascia superiore nera (horizontal)
-#   - PAESI BASSI: fascia inferiore blu (horizontal)
-#   - AUSTRIA:     rosso-bianco-rosso (horizontal, simmetrico)
+#  Italia:      VERDE presente → fine, nessun altro controllo
+#  Romania:     GIALLO + BLU
+#  Germania:    GIALLO + NERO  (giallo/oro + nero)
+#  Paesi Bassi: BLU + BIANCO + ROSSO  (no giallo, no nero)
+#  Austria:     ROSSO + BIANCO        (solo questi due)
 # ============================================================
 
 def flush_cameras(*caps, n=6):
@@ -108,68 +142,55 @@ def flush_cameras(*caps, n=6):
             c.read()
 
 
-def dominant_color_region(hsv_region):
-    """Ritorna il colore dominante in una regione HSV."""
-    h = hsv_region[:, :, 0].astype(float)
-    s = hsv_region[:, :, 1].astype(float)
-    v = hsv_region[:, :, 2].astype(float)
-
-    scores = {}
-    # Rosso (doppio range HSV)
-    scores['ROSSO']  = int(((((h < 12) | (h > 168)) & (s > 80) & (v > 60))).sum())
-    # Verde
-    scores['VERDE']  = int((((h > 38) & (h < 85) & (s > 70) & (v > 50))).sum())
-    # Blu
-    scores['BLU']    = int((((h > 95) & (h < 140) & (s > 70) & (v > 50))).sum())
-    # Giallo / Oro
-    scores['GIALLO'] = int((((h > 18) & (h < 38) & (s > 80) & (v > 70))).sum())
-    # Bianco
-    scores['BIANCO'] = int(((s < 50) & (v > 160)).sum())
-    # Nero
-    scores['NERO']   = int((v < 55).sum())
-
-    return max(scores, key=scores.get)
-
-
 def classify_flag(frame):
     """
-    Classifica la bandiera nell'immagine.
+    Classifica la bandiera nell'immagine usando conteggio colori HSV.
     Restituisce: 'ITALIA' | 'ROMANIA' | 'GERMANIA' | 'AUSTRIA' | 'PAESI_BASSI' | None
     """
     if frame is None or frame.size == 0:
         return None
 
     frame = cv2.resize(frame, (120, 120))
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    h_img, w_img = 120, 120
+    hsv   = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    h = hsv[:, :, 0].astype(int)
+    s = hsv[:, :, 1].astype(int)
+    v = hsv[:, :, 2].astype(int)
 
-    # --- Test verde → ITALIA (unico con verde nel pool) ---
-    h_ch = hsv[:, :, 0].astype(float)
-    s_ch = hsv[:, :, 1].astype(float)
-    v_ch = hsv[:, :, 2].astype(float)
-    green_pixels = int((((h_ch > 38) & (h_ch < 85) & (s_ch > 70) & (v_ch > 50))).sum())
-    if green_pixels > 300:
+    # Conteggio pixel per colore
+    n_verde  = int(((h >= C_VERDE_H_MIN)  & (h <= C_VERDE_H_MAX)  & (s >= C_VERDE_S_MIN)  & (v >= C_VERDE_V_MIN)).sum())
+    n_giallo = int(((h >= C_GIALLO_H_MIN) & (h <= C_GIALLO_H_MAX) & (s >= C_GIALLO_S_MIN) & (v >= C_GIALLO_V_MIN)).sum())
+    n_blu    = int(((h >= C_BLU_H_MIN)    & (h <= C_BLU_H_MAX)    & (s >= C_BLU_S_MIN)    & (v >= C_BLU_V_MIN)).sum())
+    n_rosso  = int((((h <= C_ROSSO_H_MAX1) | (h >= C_ROSSO_H_MIN2)) & (s >= C_ROSSO_S_MIN) & (v >= C_ROSSO_V_MIN)).sum())
+    n_nero   = int((v <= C_NERO_V_MAX).sum())
+    n_bianco = int(((s <= C_BIANCO_S_MAX) & (v >= C_BIANCO_V_MIN)).sum())
+
+    ha_verde  = n_verde  >= C_VERDE_SOGLIA
+    ha_giallo = n_giallo >= C_GIALLO_SOGLIA
+    ha_blu    = n_blu    >= C_BLU_SOGLIA
+    ha_nero   = n_nero   >= C_NERO_SOGLIA
+    ha_bianco = n_bianco >= C_BIANCO_SOGLIA
+
+    log('VIS', f"px V:{n_verde} G:{n_giallo} B:{n_blu} R:{n_rosso} K:{n_nero} W:{n_bianco}")
+
+    # Italia: verde presente → identificazione immediata
+    if ha_verde:
         return 'ITALIA'
 
-    # --- Test giallo → ROMANIA (unico con giallo puro nel pool) ---
-    yellow_pixels = int((((h_ch > 18) & (h_ch < 38) & (s_ch > 100) & (v_ch > 100))).sum())
-    if yellow_pixels > 200:
+    # Romania: giallo + blu
+    if ha_giallo and ha_blu:
         return 'ROMANIA'
 
-    # Per le restanti (Germania, Austria, Paesi Bassi) — tutte orizzontali
-    # Dividi in 3 fasce orizzontali
-    top = hsv[:h_img//3, :, :]
-    bot = hsv[2*h_img//3:, :, :]
+    # Germania: giallo/oro + nero
+    if ha_giallo and ha_nero:
+        return 'GERMANIA'
 
-    top_color = dominant_color_region(top)
-    bot_color = dominant_color_region(bot)
+    # Paesi Bassi: blu + bianco (no giallo, no nero)
+    if ha_blu and ha_bianco:
+        return 'PAESI_BASSI'
 
-    if top_color == 'NERO':
-        return 'GERMANIA'      # Nero / Rosso / Oro
-    if bot_color == 'BLU':
-        return 'PAESI_BASSI'   # Rosso / Bianco / Blu
-    if top_color == 'ROSSO' and bot_color == 'ROSSO':
-        return 'AUSTRIA'       # Rosso / Bianco / Rosso
+    # Austria: rosso + bianco (unica rimasta)
+    if ha_bianco:
+        return 'AUSTRIA'
 
     return None   # non identificata
 
