@@ -107,6 +107,12 @@ const unsigned long MOVE_TIMEOUT_MS  = 3000UL;
 const unsigned long BLACK_IGNORE_MS  =  250UL;
 const int          BLACK_CONFIRM     =    2;
 const int          STOP_CONFIRM      =    2;
+// Backup di sicurezza quando robot è bloccato (angolo/timeout)
+const int          BACKUP_MS         =  900;   // ~10cm a BASE_SPEED=90
+// Soglia "già a muro" all'avvio moveForward — non avanzare
+const float        FRONT_STUCK_THR   =  8.0f;  // cm (TARGET_FRONT_DIST + 1.5cm margine)
+// Valore sostitutivo per letture ToF fuori scala (0 o >200cm = errore sensore)
+const float        TOF_OPEN_SUBST    = 40.0f;  // cm — trattato come spazio aperto
 
 // ---------------------------------------------------------------
 // Meccanismo medikit: ruota a 9 pale, 360°/9 = 40° per pala.
@@ -197,14 +203,23 @@ int getDetectedColor() {
 //  CACHE ToF
 // ============================================================
 
+// Clamp lettura ToF: valori ≤0 (timeout/errore) o >200cm (fuori scala VL53L0X)
+// vengono sostituiti con TOF_OPEN_SUBST (40cm = spazio aperto).
+// CRITICO: senza clamp, un valore 0 triggera l'emergenza ruota (DIST_PERICOLO_RUOTA=4.5cm)
+// e fa impazzire il robot in spazi aperti.
+float clampToF(float v) {
+  if (v <= 0.5f || v > 200.0f) return TOF_OPEN_SUBST;
+  return v;
+}
+
 void updateToF() {
   if (millis() - tof.ts < TOF_REFRESH_MS) return;
-  tof.front = sensors[0].readRangeContinuousMillimeters() / 10.0f;
-  tof.back  = sensors[1].readRangeContinuousMillimeters() / 10.0f;
-  tof.ra    = sensors[2].readRangeContinuousMillimeters() / 10.0f;
-  tof.rp    = sensors[3].readRangeContinuousMillimeters() / 10.0f;
-  tof.la    = sensors[4].readRangeContinuousMillimeters() / 10.0f;
-  tof.lp    = sensors[5].readRangeContinuousMillimeters() / 10.0f;
+  tof.front = clampToF(sensors[0].readRangeContinuousMillimeters() / 10.0f);
+  tof.back  = clampToF(sensors[1].readRangeContinuousMillimeters() / 10.0f);
+  tof.ra    = clampToF(sensors[2].readRangeContinuousMillimeters() / 10.0f);
+  tof.rp    = clampToF(sensors[3].readRangeContinuousMillimeters() / 10.0f);
+  tof.la    = clampToF(sensors[4].readRangeContinuousMillimeters() / 10.0f);
+  tof.lp    = clampToF(sensors[5].readRangeContinuousMillimeters() / 10.0f);
   tof.ts    = millis();
 }
 
@@ -311,16 +326,32 @@ void moveForward() {
   lcdShow("AVANZAMENTO...", "");
   dbg("Avanzamento iniziato");
 
+  // ----------------------------------------------------------------
+  //  PRE-CHECK: se siamo già contro un muro (angolo, rotazione errata)
+  //  non avanzare — fai backup immediato e segnala STUCK al Pi.
+  // ----------------------------------------------------------------
+  tof.ts = 0; updateToF();
+  if (tof.front <= FRONT_STUCK_THR) {
+    lcdShow("STUCK pre-move", "F:" + String(tof.front,1) + "cm");
+    dbg("STUCK pre-move: front=" + String(tof.front,1) + "cm <= " + String(FRONT_STUCK_THR));
+    setMotors(-BASE_SPEED, -BASE_SPEED);
+    delay(BACKUP_MS);
+    stopMotors();
+    Serial.println("<MOVE:STUCK>");
+    scanSensors();
+    return;
+  }
+
   moveCounter  = 0;
   lastMoveTime = millis();
 
-  updateToF();
   float dF_start   = tof.front;
   float dB_start   = tof.back;
   bool  wallFront  = (dF_start < SOGLIA_MURO_FRONT);
   bool  wallBack   = (dB_start < 15.0f);
   int   blackCount = 0;   // conferme consecutive cella nera
   int   stopCount  = 0;   // conferme consecutive fine-cella
+  bool  stuck      = false;
 
   // Motori partono subito; drift verrà applicato ogni tick
   setMotors(BASE_SPEED, BASE_SPEED);
@@ -412,19 +443,35 @@ void moveForward() {
     // ---- Fine cella: muro posteriore percorso ~30cm ----
     if (wallBack && dB >= (dB_start + 29.5f)) break;
 
-    // ---- Timeout assoluto ----
+    // ---- Timeout assoluto → robot bloccato ----
     if (millis() - moveStart >= MOVE_TIMEOUT_MS) {
-      dbg("TIMEOUT avanzamento " + String(MOVE_TIMEOUT_MS) + "ms");
+      dbg("TIMEOUT avanzamento — robot STUCK");
+      stuck = true;
       break;
     }
   }
 
   stopMotors();
-  dbg("Avanzamento OK  F:" + String(tof.front,1)
-      + "cm cnt=" + String(moveCounter)
-      + " t=" + String(millis() - moveStart) + "ms");
-  lcdShow("AVANZ. OK", "F:" + String(tof.front,1) + "cm");
-  Serial.println("<MOVE:OK>");
+
+  if (stuck) {
+    // ----------------------------------------------------------------
+    //  STUCK: robot non ha raggiunto la cella target.
+    //  Backup di BACKUP_MS ms per liberarsi dall'angolo,
+    //  poi segnala al Pi che la direzione è impraticabile.
+    // ----------------------------------------------------------------
+    lcdShow("STUCK!", "Backup " + String(BACKUP_MS) + "ms");
+    dbg("STUCK: backup " + String(BACKUP_MS) + "ms poi MOVE:STUCK");
+    setMotors(-BASE_SPEED, -BASE_SPEED);
+    delay(BACKUP_MS);
+    stopMotors();
+    Serial.println("<MOVE:STUCK>");
+  } else {
+    dbg("Avanzamento OK  F:" + String(tof.front,1)
+        + "cm cnt=" + String(moveCounter)
+        + " t=" + String(millis() - moveStart) + "ms");
+    lcdShow("AVANZ. OK", "F:" + String(tof.front,1) + "cm");
+    Serial.println("<MOVE:OK>");
+  }
   scanSensors();
 }
 

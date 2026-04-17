@@ -511,6 +511,21 @@ def main():
                        f"marcata come muro")
 
         # ------------------------------------------------------------------ #
+        #  MOVE:STUCK — robot bloccato (angolo, timeout), ha fatto backup.
+        #  Stesso comportamento di MOVE:BLACK: marca la direzione come muro
+        #  così DFS non ci riprova e sceglie altra via.
+        # ------------------------------------------------------------------ #
+        elif msg == "<MOVE:STUCK>":
+            curr = (robot.x, robot.y)
+            abs_d = (robot.orientation + robot.last_move) % 4
+            if curr in robot.map:
+                robot.map[curr].walls[abs_d] = True
+            if robot.stack and robot.stack[-1] == curr:
+                robot.stack.pop()
+            log("NAV", f"STUCK — dir {DIR_NOMI[abs_d]} da {curr} bloccata. "
+                       f"Robot ha fatto backup. DFS sceglie altra direzione.")
+
+        # ------------------------------------------------------------------ #
         #  LOP — Lack of Progress: il giudice ha spostato il robot (fix migl. #2)
         # ------------------------------------------------------------------ #
         elif msg == "<LOP>":
