@@ -69,10 +69,10 @@ const int   TOF_REFRESH_MS = 15;
 // ---------------------------------------------------------------
 // Soglie geometricamente derivate — robot 22cm, cella 30x30cm
 // ---------------------------------------------------------------
-const float SOGLIA_MURO_FRONT   = 25.0;
-const float SOGLIA_MURO_LAT     = 18.0;
+const float SOGLIA_MURO_FRONT   = 10.0;
+const float SOGLIA_MURO_LAT     = 15.0;
 const float TARGET_LAT_DIST     = 10.0;
-const float TARGET_FRONT_DIST   =  6.5;
+const float TARGET_FRONT_DIST   =  4.0;
 const float DIST_PERICOLO_RUOTA =  4.5;
 
 // ---------------------------------------------------------------
@@ -83,13 +83,13 @@ const float DIST_PERICOLO_RUOTA =  4.5;
 //   ROT_180_MS  : ms per 180° (tipico: ~2 × ROT_90_MS)
 //   ROT_SETTLE  : pausa post-rotazione per stabilizzarsi
 // ---------------------------------------------------------------
-const int ROT_SPEED  = 160;
-const int ROT_90_MS  = 450;
-const int ROT_180_MS = 880;
-const int ROT_SETTLE = 200;
+const int ROT_SPEED  = 185;
+const int ROT_90_MS  = 550;
+const int ROT_180_MS = 900;
+const int ROT_SETTLE = 100;
 
 // Velocità di crociera costante
-const int BASE_SPEED = 90;
+const int BASE_SPEED = 60;
 
 // ---------------------------------------------------------------
 // Parametri avanzamento
@@ -123,7 +123,7 @@ const float        TOF_OPEN_SUBST    = 40.0f;  // cm — trattato come spazio ap
 // ---------------------------------------------------------------
 const int SERVO_STEP     = 40;
 const int SERVO_SLOW_MS  = 12;   // → 40° = 480ms per kit
-const int SERVO_RESET_MS =  6;   // → reset 160°→0 ≈ 960ms
+const int SERVO_RESET_MS =  4;   // → reset 160°→0 ≈ 960ms
 
 // --- GLOBALI ---
 RobotConfig config;
