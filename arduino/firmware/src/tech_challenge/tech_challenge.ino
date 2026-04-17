@@ -73,9 +73,9 @@ const float TARGET_FRONT_DIST   =  4.0;
 const float DIST_PERICOLO_RUOTA =  4.5;
 
 // Rotazione — stesse di main_senza_mpu.ino
-const int ROT_SPEED  = 185;
-const int ROT_90_MS  = 550;
-const int ROT_180_MS = 900;
+const int ROT_SPEED  = 203;
+const int ROT_90_MS  = 500;
+const int ROT_180_MS = 1000;
 const int ROT_SETTLE = 100;
 
 const int BASE_SPEED = 60;
