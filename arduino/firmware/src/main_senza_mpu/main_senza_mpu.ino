@@ -516,16 +516,22 @@ void servoSlowMove(int target, int msPerDeg = SERVO_SLOW_MS) {
 // ============================================================
 
 void dispenseKit() {
+  medikitServo.attach(SERVO_PIN);
+  delay(50);  // stabilizzazione breve post-attach
+
   int nextAngle = servoAngle + SERVO_STEP;
   if (nextAngle > 170) {
     lcdShow("SERVO RESET", "0deg...");
-    dbg("Servo reset: " + String(servoAngle) + "deg → 0deg");
+    dbg("Servo reset: " + String(servoAngle) + "deg -> 0deg");
     servoSlowMove(0, SERVO_RESET_MS);
     nextAngle = SERVO_STEP;
   }
   lcdShow("EROGAZ. KIT", String(servoAngle) + ">" + String(nextAngle) + "deg");
-  dbg("Servo: " + String(servoAngle) + "deg → " + String(nextAngle) + "deg");
+  dbg("Servo: " + String(servoAngle) + "deg -> " + String(nextAngle) + "deg");
   servoSlowMove(nextAngle);
+
+  delay(200);              // mantieni posizione raggiunta
+  medikitServo.detach();   // stop PWM — no jitter tra un'erogazione e l'altra
 }
 
 // ============================================================
@@ -664,11 +670,11 @@ void setup() {
   delay(1000);
 
   medikitServo.attach(SERVO_PIN);
-  medikitServo.write(90);  // posizione neutra di partenza (best-guess)
-  servoAngle = 90;
-  delay(400);              // lascia raggiungere 90°
-  lcdShow("SERVO INIT", "90 -> 0deg...");
-  servoSlowMove(0);        // porta lentamente a 0 (12ms/grado ≈ 1.1s)
+  medikitServo.write(0);   // posiziona direttamente a 0° — nessuno sweep
+  servoAngle = 0;
+  delay(600);              // lascia raggiungere fisicamente 0°
+  medikitServo.detach();   // stop PWM: nessun jitter, nessuna rotazione continua
+  lcdShow("SERVO INIT", "pronto a 0deg");
 
   tof.ts = 0;
 
