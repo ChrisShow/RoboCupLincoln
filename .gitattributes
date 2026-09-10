@@ -1,0 +1,29 @@
+# Normalizza i fine-riga solo per il codice sorgente (evita rumore CRLF/LF)
+*.py    text eol=lf
+*.ino   text eol=lf
+*.sh    text eol=lf
+*.md    text
+*.yaml  text
+*.yml   text
+*.csv   text
+*.drawio text
+
+# File binari: niente diff/merge testuale
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.pdf   binary
+*.zip   binary
+*.docx  binary
+*.3mf   binary
+*.f3d   binary
+*.stl   binary
+*.STL   binary
+*.pt    binary
+*.onnx  binary
+
+# Escludi gli asset binari dalle statistiche linguaggio di GitHub
+docs/**        linguist-documentation
+*.3mf          linguist-vendored
+*.f3d          linguist-vendored
+*.stl          linguist-vendored

@@ -1,0 +1,109 @@
+# ==========================================================================
+#  RoboCupLincoln — .gitignore
+#  Tiene fuori dal repo tutto ciò che è pesante, generato o locale.
+#  Nota: questo file NON rimuove ciò che è già tracciato: usa i comandi
+#  `git rm -r --cached ...` indicati nel README per smettere di tracciarli.
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+#  Copia annidata dell'intero progetto (accidentale) + export dataset
+# --------------------------------------------------------------------------
+/mENIAC/
+/v3.zip
+/*.zip                     # zip di export dataset nella root
+
+# --------------------------------------------------------------------------
+#  Vision — dataset (esportati da Roboflow, rigenerabili)
+#  Si tiene solo il codice: *.py, data.yaml, README.*.txt
+# --------------------------------------------------------------------------
+# Immagini sorgente
+raspberry/src/vision/img/**
+!raspberry/src/vision/img/
+!raspberry/src/vision/img/**/
+!raspberry/src/vision/img/**/*.py
+
+# Split del dataset e output di training per ogni modello
+raspberry/src/vision/model_*/train/
+raspberry/src/vision/model_*/valid/
+raspberry/src/vision/model_*/test/
+raspberry/src/vision/model_*/runs/
+raspberry/src/vision/model_*/*.zip
+
+# --------------------------------------------------------------------------
+#  Pesi dei modelli e cache (rigenerabili / scaricati automaticamente)
+# --------------------------------------------------------------------------
+*.pt
+*.pth
+*.onnx
+*.engine
+*.cache
+yolov8*.pt
+
+# --------------------------------------------------------------------------
+#  Python
+# --------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Virtualenv (qualsiasi nome, a qualsiasi profondità)
+venv/
+.venv/
+env/
+ENV/
+**/venv/
+**/.venv/
+
+# --------------------------------------------------------------------------
+#  Arduino / PlatformIO
+# --------------------------------------------------------------------------
+.pio/
+.pioenvs/
+.piolibdeps/
+build/
+*.hex
+*.elf
+*.bin
+
+# --------------------------------------------------------------------------
+#  Editor / IDE
+# --------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# --------------------------------------------------------------------------
+#  Sistema operativo
+# --------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+
+# --------------------------------------------------------------------------
+#  Log e temporanei
+# --------------------------------------------------------------------------
+*.log
+*.tmp
+*.bak
+*.orig
