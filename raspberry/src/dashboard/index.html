@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mENIAC Telemetria</title>
+<style>
+:root {
+  --bg: #0e1116; --surface: #161b22; --surface2: #1d242d; --line: #2a333e;
+  --text: #e6edf3; --muted: #8b98a6; --faint: #5a6572;
+  --accent: #4cc2ff; --ok: #3fb97f; --warn: #e3a635; --bad: #f05d5e; --blue: #3d7bff;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --radius: 12px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f3f5f8; --surface: #ffffff; --surface2: #eef1f5; --line: #d9dee5;
+    --text: #17202a; --muted: #5b6774; --faint: #9aa5b1;
+    --accent: #0a84c6; --ok: #1f8f5a; --warn: #b7791f; --bad: #d64545; --blue: #2f62d9;
+    color-scheme: light;
+  }
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.num, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+header { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px 18px;
+  align-items: center; padding: 12px 20px; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-size: 18px; letter-spacing: .02em; }
+.brand span { color: var(--muted); font-size: 13px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); font-size: 12.5px; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.dot.ok { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+.dot.warn { background: var(--warn); }
+.dot.bad { background: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 25%, transparent); }
+
+main { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; padding: 16px 20px 32px;
+  max-width: 1600px; margin: 0 auto; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px; min-width: 0; }
+.card h2 { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.card h2 .right { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.s6 { grid-column: span 6; } .s5 { grid-column: span 5; } .s4 { grid-column: span 4; }
+.s3 { grid-column: span 3; } .s7 { grid-column: span 7; } .s12 { grid-column: span 12; }
+@media (max-width: 1200px) { .s3, .s4 { grid-column: span 6; } .s5, .s7 { grid-column: span 12; } }
+@media (max-width: 800px) { main { padding: 12px 16px 24px; gap: 12px; }
+  .s3, .s4, .s5, .s6, .s7 { grid-column: span 12; } header { padding: 10px 16px; } }
+
+/* camere */
+.cam-frame { position: relative; aspect-ratio: 4 / 3; background: #000; border-radius: 8px; overflow: hidden; }
+.cam-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.cam-overlay { position: absolute; inset: 0; display: grid; place-items: center; color: #aab4bf;
+  font-size: 13px; text-align: center; padding: 20px; background: repeating-linear-gradient(45deg, #0b0d10 0 12px, #101318 12px 24px); }
+.cam-overlay[hidden] { display: none; }
+.cam-tag { position: absolute; left: 10px; top: 10px; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,.6);
+  color: #fff; font: 600 12px var(--mono); }
+.btn { border: 1px solid var(--line); background: var(--surface2); color: var(--text); border-radius: 8px;
+  padding: 4px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.on { background: color-mix(in srgb, var(--accent) 18%, var(--surface2)); border-color: var(--accent); }
+.scan { display: grid; grid-template-columns: 112px 1fr; gap: 12px; margin-top: 12px; align-items: center; }
+.scan img { width: 112px; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; background: var(--surface2);
+  border: 1px solid var(--line); cursor: zoom-in; }
+.scan .lbl { font-size: 20px; font-weight: 700; }
+.muted { color: var(--muted); } .faint { color: var(--faint); }
+.small { font-size: 12.5px; }
+
+/* ToF */
+.tof-wrap { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 1.15fr); gap: 14px; align-items: center; }
+@media (max-width: 520px) { .tof-wrap { grid-template-columns: 1fr; } }
+.tof-svg { width: 100%; max-width: 260px; margin: 0 auto; display: block; }
+.tof-list { display: grid; gap: 6px; }
+.tof-row { display: grid; grid-template-columns: 74px 64px 1fr; gap: 8px; align-items: center; }
+.tof-row .v { text-align: right; font-weight: 600; }
+.tof-row canvas { width: 100%; height: 24px; display: block; }
+.st-ok { color: var(--ok); } .st-wall { color: var(--warn); } .st-bad { color: var(--bad); } .st-off { color: var(--faint); }
+
+/* motori */
+.motor { margin-bottom: 14px; }
+.motor .top { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.bar { position: relative; height: 14px; border-radius: 7px; background: var(--surface2); overflow: hidden; }
+.bar::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--faint); }
+.bar i { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 7px; transition: all .15s; }
+.bar i.neg { background: var(--warn); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; text-align: right; }
+
+.swatch { width: 54px; height: 54px; border-radius: 10px; border: 1px solid var(--line); flex: none; }
+.row { display: flex; gap: 14px; align-items: center; }
+.io { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.io div { background: var(--surface2); border-radius: 8px; padding: 8px; text-align: center; font-size: 12px; color: var(--muted); }
+.io b { display: block; font-size: 14px; color: var(--text); margin-top: 2px; }
+.sep { height: 1px; background: var(--line); margin: 14px 0; }
+
+/* mappa */
+.map-wrap { position: relative; height: 380px; background: var(--surface2); border-radius: 8px; overflow: hidden; }
+#map { width: 100%; height: 100%; display: block; }
+.map-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 20px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+  margin-right: 6px; vertical-align: -1px; background: var(--c); }
+.navstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+@media (max-width: 520px) { .navstats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: var(--surface2); border-radius: 8px; padding: 8px 10px; }
+.stat small { display: block; color: var(--muted); font-size: 11.5px; }
+.stat b { font: 600 16px var(--mono); }
+
+.meter { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+.flags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.flag { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.flag.now { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); font-weight: 600; }
+.msg { font: 12.5px var(--mono); background: var(--surface2); padding: 6px 8px; border-radius: 6px; overflow-wrap: anywhere; }
+
+/* log */
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+#log { height: 300px; overflow: auto; font: 12.5px/1.55 var(--mono); background: var(--surface2); border-radius: 8px; padding: 8px 10px; }
+#log .l { display: grid; grid-template-columns: 66px 42px 1fr; gap: 8px; }
+#log .l span:last-child { overflow-wrap: anywhere; }
+.cat { font-weight: 700; }
+.c-NAV { color: var(--accent); } .c-VIS { color: #c08bff; } .c-ARD { color: var(--ok); } .c-COM { color: var(--muted); }
+.c-SYS, .c-DASH { color: var(--warn); } .c-ERR { color: var(--bad); }
+
+dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: #000; max-width: 92vw; }
+dialog img { display: block; max-width: 92vw; max-height: 86vh; }
+dialog::backdrop { background: rgba(0,0,0,.7); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>mENIAC</b><span>telemetria live · RoboCup Junior Rescue Maze</span></div>
+  <div class="pills">
+    <span class="pill"><i class="dot" id="p-link"></i><span id="t-link">Connessione…</span></span>
+    <span class="pill"><i class="dot" id="p-ard"></i><span id="t-ard">Arduino</span></span>
+    <span class="pill"><i class="dot" id="p-run"></i><span id="t-run">Gara</span></span>
+    <span class="pill"><i class="dot" id="p-pi"></i><span id="t-pi">Raspberry</span></span>
+  </div>
+</header>
+
+<main>
+  <!-- CAMERE -->
+  <section class="card s6" data-cam="sx">
+    <h2>Camera sinistra <span class="right"><span class="mono small muted" data-f="info"></span>
+      <button class="btn on" data-f="toggle">Live</button></span></h2>
+    <div class="cam-frame"><img data-f="img" alt="Camera sinistra"><span class="cam-tag">SX</span>
+      <div class="cam-overlay" data-f="overlay">In attesa del video…</div></div>
+    <div class="scan"><img data-f="snap" alt="Ultima scansione YOLO, camera sinistra">
+      <div><div class="small muted">Ultima scansione YOLO</div><div class="lbl" data-f="label">—</div>
+        <div class="small muted" data-f="meta">nessuna scansione</div></div></div>
+  </section>
+  <section class="card s6" data-cam="dx">
+    <h2>Camera destra / frontale <span class="right"><span class="mono small muted" data-f="info"></span>
+      <button class="btn on" data-f="toggle">Live</button></span></h2>
+    <div class="cam-frame"><img data-f="img" alt="Camera destra"><span class="cam-tag">DX</span>
+      <div class="cam-overlay" data-f="overlay">In attesa del video…</div></div>
+    <div class="scan"><img data-f="snap" alt="Ultima scansione YOLO, camera destra">
+      <div><div class="small muted">Ultima scansione YOLO</div><div class="lbl" data-f="label">—</div>
+        <div class="small muted" data-f="meta">nessuna scansione</div></div></div>
+  </section>
+
+  <!-- ToF -->
+  <section class="card s5">
+    <h2>Sensori di distanza ToF <span class="right small muted">VL53L0X × 6</span></h2>
+    <div class="tof-wrap">
+      <svg class="tof-svg" id="robot" viewBox="-115 -125 230 250" role="img" aria-label="Vista dall'alto del robot con i 6 sensori ToF"></svg>
+      <div class="tof-list" id="tof-list"></div>
+    </div>
+  </section>
+
+  <!-- MOTORI + SERVO -->
+  <section class="card s4">
+    <h2>Motori <span class="right small muted">TB6612FNG × 2</span></h2>
+    <div class="motor"><div class="top"><span>Fiancata sinistra</span><span class="num" id="m-l">—</span></div>
+      <div class="bar"><i id="mb-l"></i></div></div>
+    <div class="motor"><div class="top"><span>Fiancata destra</span><span class="num" id="m-r">—</span></div>
+      <div class="bar"><i id="mb-r"></i></div></div>
+    <div class="small muted" id="m-state">—</div>
+    <div class="sep"></div>
+    <h2>Servo medikit <span class="right small muted">SG90</span></h2>
+    <div class="row">
+      <svg viewBox="-60 -60 120 70" width="130" aria-label="Angolo servo">
+        <path d="M -50 0 A 50 50 0 0 1 50 0" fill="none" stroke="var(--surface2)" stroke-width="10" stroke-linecap="round"/>
+        <path id="servo-arc" d="" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"/>
+        <line id="servo-needle" x1="0" y1="0" x2="-44" y2="0" stroke="var(--text)" stroke-width="3" stroke-linecap="round"/>
+        <circle r="5" fill="var(--text)"/>
+      </svg>
+      <div><div class="num" style="font-size:26px;font-weight:700" id="servo-v">—</div>
+        <div class="small muted" id="servo-k">posizione ruota a 9 pale</div></div>
+    </div>
+  </section>
+
+  <!-- COLORE / IMU / IO -->
+  <section class="card s3">
+    <h2>Pavimento <span class="right small muted">TCS3200</span></h2>
+    <div class="row"><div class="swatch" id="col-sw"></div>
+      <div><div style="font-size:18px;font-weight:700" id="col-name">—</div>
+        <div class="small muted num" id="col-raw">R — G — B —</div></div></div>
+    <div class="sep"></div>
+    <h2>Giroscopio <span class="right small muted">MPU6050</span></h2>
+    <div class="row">
+      <svg viewBox="-30 -30 60 60" width="64" aria-label="Bussola yaw">
+        <circle r="26" fill="var(--surface2)" stroke="var(--line)"/>
+        <line id="yaw-n" x1="0" y1="0" x2="0" y2="-20" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+        <circle r="3" fill="var(--text)"/></svg>
+      <dl class="kv" style="flex:1;margin:0"><dt>Yaw</dt><dd class="num" id="imu-yaw">—</dd>
+        <dt>Pitch</dt><dd class="num" id="imu-pitch">—</dd></dl>
+    </div>
+    <div class="io">
+      <div>Gara<b id="io-run">—</b></div><div>Pulsante<b id="io-btn">—</b></div><div>LED<b id="io-led">—</b></div>
+    </div>
+  </section>
+
+  <!-- MAPPA -->
+  <section class="card s7">
+    <h2>Mappa del labirinto <span class="right small muted" id="nav-phase"></span></h2>
+    <div class="navstats">
+      <div class="stat"><small>Posizione</small><b id="nav-pos">—</b></div>
+      <div class="stat"><small>Orientamento</small><b id="nav-ori">—</b></div>
+      <div class="stat"><small>Celle visitate</small><b id="nav-vis">—</b></div>
+      <div class="stat"><small>Vittime</small><b id="nav-vic">0</b></div>
+    </div>
+    <div class="map-wrap"><canvas id="map"></canvas>
+      <div class="map-empty" id="map-empty">La mappa è disponibile solo in modalità --demo (il robot resta fermo).</div></div>
+    <div class="legend">
+      <span style="--c:var(--surface)">visitata</span><span style="--c:var(--blue)">blu (attesa 5s)</span>
+      <span style="--c:#000">nera (trap)</span><span style="--c:var(--text)">muro</span>
+      <span style="--c:var(--faint)">muro ignoto</span><span style="--c:#c08bff">vittima</span>
+    </div>
+    <div class="small muted" style="margin-top:8px" id="nav-cell"></div>
+  </section>
+
+  <!-- RASPBERRY + SERIALE -->
+  <section class="card s5">
+    <h2>Raspberry Pi 4B <span class="right small muted mono" id="pi-host"></span></h2>
+    <dl class="kv">
+      <dt>Temperatura CPU</dt><dd class="num" id="pi-temp">—</dd>
+      <dt>Carico (1/5/15 min)</dt><dd class="num" id="pi-load">—</dd>
+      <dt>RAM</dt><dd class="num" id="pi-mem">—</dd>
+      <dt>Disco</dt><dd class="num" id="pi-disk">—</dd>
+      <dt>Wi-Fi</dt><dd class="num" id="pi-wifi">—</dd>
+      <dt>Acceso da</dt><dd class="num" id="pi-up">—</dd>
+      <dt>Indirizzi</dt><dd class="num small" id="pi-ip">—</dd>
+      <dt>Modello YOLO</dt><dd id="pi-model">—</dd>
+    </dl>
+    <div class="flags" id="pi-flags"></div>
+    <div class="sep"></div>
+    <h2>Seriale Arduino ↔ Pi <span class="right small muted mono" id="ser-port"></span></h2>
+    <dl class="kv">
+      <dt>Telemetria</dt><dd class="num" id="ser-hz">—</dd>
+      <dt>Messaggi RX / TX</dt><dd class="num" id="ser-cnt">—</dd>
+    </dl>
+    <div class="small muted" style="margin:10px 0 4px">Ultimo ricevuto</div><div class="msg" id="ser-rx">—</div>
+    <div class="small muted" style="margin:10px 0 4px">Ultimo inviato</div><div class="msg" id="ser-tx">—</div>
+  </section>
+
+  <!-- LOG -->
+  <section class="card s12">
+    <h2>Log <span class="right filters" id="filters"></span></h2>
+    <div id="log" aria-live="polite"></div>
+  </section>
+</main>
+
+<dialog id="zoom"><img alt="Scansione ingrandita"></dialog>
+
+<script>
+// ---------------------------------------------------------------- configurazione
+// Soglie come in fine_gara.ino — solo per colorare i valori (SOGLIA_MURO_FRONT / SOGLIA_MURO_LAT / DIST_PERICOLO_RUOTA)
+const WALL_FRONT_CM = 10, WALL_LAT_CM = 15, DANGER_CM = 4.5, BEAM_MAX_CM = 40;
+const HISTORY = 150;   // campioni per i grafici ToF (~30 s)
+
+const TOKEN = new URLSearchParams(location.search).get('token');
+const q = (extra = '') => { const p = new URLSearchParams(extra); if (TOKEN) p.set('token', TOKEN); const s = p.toString(); return s ? '?' + s : ''; };
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 1, u = '') => v == null || Number.isNaN(v) ? '—' : `${Number(v).toFixed(d)}${u}`;
+const ago = t => { if (!t) return '—'; const s = Date.now() / 1000 - t; return s < 1 ? 'adesso' : s < 60 ? `${s.toFixed(0)} s fa` : s < 3600 ? `${Math.floor(s / 60)} min fa` : `${Math.floor(s / 3600)} h fa`; };
+const dur = s => s == null ? '—' : s < 3600 ? `${Math.floor(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.floor(s % 3600 / 60)} min`;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function pill(id, cls, text) { $('p-' + id).className = 'dot ' + cls; $('t-' + id).textContent = text; }
+
+// ---------------------------------------------------------------- camere
+const cams = {};
+document.querySelectorAll('[data-cam]').forEach(card => {
+  const name = card.dataset.cam, f = k => card.querySelector(`[data-f="${k}"]`);
+  const c = cams[name] = { live: true, img: f('img'), overlay: f('overlay'), info: f('info'), btn: f('toggle'),
+    snap: f('snap'), label: f('label'), meta: f('meta'), snapSeq: null, retry: null };
+  const connect = () => { clearTimeout(c.retry); if (c.live) c.img.src = `/stream/${name}${q({ t: Date.now() })}`; };
+  c.img.onload = () => { c.overlay.hidden = true; };
+  c.img.onerror = () => { c.overlay.hidden = false; c.overlay.textContent = 'Camera non disponibile — nuovo tentativo tra 3 s'; c.retry = setTimeout(connect, 3000); };
+  c.btn.onclick = () => {
+    c.live = !c.live; c.btn.classList.toggle('on', c.live); c.btn.textContent = c.live ? 'Live' : 'In pausa';
+    if (c.live) connect(); else { c.img.removeAttribute('src'); c.overlay.hidden = false; c.overlay.textContent = 'Stream in pausa (risparmia CPU sul Raspberry)'; }
+  };
+  c.snap.onclick = () => { if (c.snap.src) { $('zoom').querySelector('img').src = c.snap.src; $('zoom').showModal(); } };
+  c.connect = connect; connect();
+});
+$('zoom').onclick = () => $('zoom').close();
+
+function renderCams(s) {
+  for (const [name, c] of Object.entries(cams)) {
+    const info = s.cameras?.[name];
+    c.info.textContent = info ? (info.opened ? `${info.fps} fps · ${info.resolution}` : 'non aperta') : 'non registrata';
+    const scan = s.vision?.scans?.[name];
+    if (scan) {
+      c.label.textContent = scan.label || 'nessuna vittima';
+      c.label.style.color = scan.label ? css('--ok') : css('--muted');
+      c.meta.textContent = `parete ${scan.wall} · ${scan.conf && scan.label ? Math.round(scan.conf * 100) + '% · ' : ''}${scan.fake_conf ? 'FAKE ' + Math.round(scan.fake_conf * 100) + '% · ' : ''}${ago(scan.t)}`;
+      if (scan.snap && scan.snap !== c.snapSeq) { c.snapSeq = scan.snap; c.snap.src = `/snapshot/${name}${q({ v: scan.snap })}`; }
+    }
+  }
+}
+
+// ---------------------------------------------------------------- ToF
+const TOF = [ // posizioni in cm rispetto al centro (y verso il basso = retro)
+  { k: 'front', name: 'Fronte', x: 0, y: -8.5, dx: 0, dy: -1, lat: false },
+  { k: 'back', name: 'Retro', x: 0, y: 8.5, dx: 0, dy: 1, lat: false },
+  { k: 'ra', name: 'DX ant.', x: 5, y: -5, dx: 1, dy: 0, lat: true },
+  { k: 'rp', name: 'DX post.', x: 5, y: 5, dx: 1, dy: 0, lat: true },
+  { k: 'la', name: 'SX ant.', x: -5, y: -5, dx: -1, dy: 0, lat: true },
+  { k: 'lp', name: 'SX post.', x: -5, y: 5, dx: -1, dy: 0, lat: true },
+];
+const S = 2.2, hist = Object.fromEntries(TOF.map(t => [t.k, []]));
+const NS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
+(function buildRobot() {
+  const svg = $('robot');
+  svgEl('rect', { x: -5 * S, y: -8.5 * S, width: 10 * S, height: 17 * S, rx: 4, fill: 'var(--surface2)', stroke: 'var(--muted)', 'stroke-width': 1.5 }, svg);
+  for (const [x, y] of [[-6.5, -5.5], [5, -5.5], [-6.5, 2.3], [5, 2.3]])
+    svgEl('rect', { x: x * S, y: y * S, width: 1.5 * S, height: 6.5 * S / 2 * 2, rx: 2, fill: 'var(--faint)' }, svg);
+  svgEl('path', { d: `M 0 ${-6.5 * S} l -5 7 h 10 z`, fill: 'var(--accent)' }, svg);
+  for (const t of TOF) {
+    t.beam = svgEl('line', { x1: t.x * S, y1: t.y * S, x2: t.x * S, y2: t.y * S, 'stroke-width': 3, 'stroke-linecap': 'round' }, svg);
+    svgEl('circle', { cx: t.x * S, cy: t.y * S, r: 3, fill: 'var(--text)' }, svg);
+    t.txt = svgEl('text', { 'font-size': 11, 'font-family': 'ui-monospace, Menlo, monospace', 'text-anchor': 'middle', fill: 'var(--text)' }, svg);
+  }
+  const list = $('tof-list');
+  for (const t of TOF) {
+    const row = document.createElement('div'); row.className = 'tof-row';
+    row.innerHTML = `<span class="muted">${t.name}</span><span class="v num">—</span><canvas></canvas>`;
+    t.val = row.children[1]; t.cv = row.children[2]; list.appendChild(row);
+  }
+})();
+function tofClass(t, e) {
+  if (!e || e.cm == null) return 'st-off';
+  if (e.cm < DANGER_CM && t.lat) return 'st-bad';
+  return e.cm <= (t.lat ? WALL_LAT_CM : WALL_FRONT_CM) ? 'st-wall' : 'st-ok';
+}
+function renderTof(a) {
+  const colors = { 'st-ok': css('--ok'), 'st-wall': css('--warn'), 'st-bad': css('--bad'), 'st-off': css('--faint') };
+  for (const t of TOF) {
+    const e = a.tof?.[t.k], cls = tofClass(t, e), col = colors[cls];
+    const len = e?.cm == null ? 6 : Math.min(e.cm, BEAM_MAX_CM);
+    const x2 = (t.x + t.dx * len) * S, y2 = (t.y + t.dy * len) * S;
+    t.beam.setAttribute('x2', x2); t.beam.setAttribute('y2', y2); t.beam.setAttribute('stroke', col);
+    t.beam.setAttribute('stroke-dasharray', e?.cm == null ? '3 4' : '');
+    const label = e?.cm == null ? (e?.state ?? 'n/d') : e.cm.toFixed(1);
+    t.txt.textContent = label;
+    t.txt.setAttribute('x', x2 + t.dx * 16); t.txt.setAttribute('y', y2 + t.dy * 12 + 4);
+    t.val.textContent = e?.cm == null ? (e?.state ?? '—') : `${e.cm.toFixed(1)} cm`;
+    t.val.className = 'v num ' + cls;
+    const h = hist[t.k]; h.push(e?.cm ?? null); if (h.length > HISTORY) h.shift();
+    spark(t.cv, h, col, t.lat ? WALL_LAT_CM : WALL_FRONT_CM);
+  }
+}
+function spark(cv, data, color, thr) {
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const max = 60, y = v => h - 2 - Math.min(v, max) / max * (h - 4), x = i => i / (HISTORY - 1) * w;
+  g.strokeStyle = css('--line'); g.setLineDash([2, 3]); g.beginPath(); g.moveTo(0, y(thr)); g.lineTo(w, y(thr)); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = color; g.lineWidth = 1.5; g.beginPath(); let pen = false;
+  const off = HISTORY - data.length;
+  data.forEach((v, i) => { if (v == null) { pen = false; return; } pen ? g.lineTo(x(i + off), y(v)) : g.moveTo(x(i + off), y(v)); pen = true; });
+  g.stroke();
+}
+
+// ---------------------------------------------------------------- motori, servo, colore, IMU, IO
+function bar(el, v) {
+  const p = Math.min(Math.abs(v ?? 0), 255) / 255 * 50;
+  el.style.left = v < 0 ? `${50 - p}%` : '50%'; el.style.width = `${p}%`; el.classList.toggle('neg', v < 0);
+}
+function renderActuators(a) {
+  const m = a.motors || {};
+  $('m-l').textContent = m.l == null ? '—' : `${m.l > 0 ? '+' : ''}${m.l}`; bar($('mb-l'), m.l);
+  $('m-r').textContent = m.r == null ? '—' : `${m.r > 0 ? '+' : ''}${m.r}`; bar($('mb-r'), m.r);
+  let st = '—';
+  if (m.l != null) {
+    if (!m.l && !m.r) st = 'Fermo';
+    else if (Math.sign(m.l) !== Math.sign(m.r) && m.l && m.r) st = m.l > m.r ? 'Rotazione verso destra' : 'Rotazione verso sinistra';
+    else if (m.l > 0 || m.r > 0) st = `Avanti${Math.abs(m.l - m.r) > 4 ? ` · correzione ${m.l > m.r ? 'verso destra' : 'verso sinistra'} (${Math.abs(m.l - m.r)})` : ''}`;
+    else st = 'Indietro';
+  }
+  $('m-state').textContent = st + ' · PWM −255…+255';
+
+  const ang = a.servo;
+  $('servo-v').textContent = ang == null ? '—' : `${ang}°`;
+  if (ang != null) {
+    const r = Math.PI * (1 - ang / 180), x = Math.cos(r) * 44, y = -Math.sin(r) * 44;
+    $('servo-needle').setAttribute('x2', x); $('servo-needle').setAttribute('y2', y);
+    $('servo-arc').setAttribute('d', ang > 0 ? `M -50 0 A 50 50 0 0 1 ${Math.cos(r) * 50} ${-Math.sin(r) * 50}` : '');
+    $('servo-k').textContent = `pala ${Math.round(ang / 40)} di 4 prima del reset`;
+  } else $('servo-k').textContent = 'non usato in modalità dimostrativa';
+
+  const c = a.color;
+  if (c && c.r != null) {
+    // TCS3200: valore = durata impulso in µs → più piccolo = più luce. Inverto e normalizzo.
+    const inv = [c.r, c.g, c.b].map(v => 1 / Math.max(v, 1)), mx = Math.max(...inv);
+    const [r, g, b] = inv.map(v => Math.round(v / mx * 235));
+    $('col-sw').style.background = c.cls === 4 ? '#000' : c.cls === 3 ? css('--blue') : `rgb(${r},${g},${b})`;
+    $('col-name').textContent = c.name; $('col-raw').textContent = `R ${c.r}  G ${c.g}  B ${c.b} µs`;
+  }
+
+  const imu = a.imu;
+  $('imu-yaw').textContent = imu ? fmt(imu.yaw, 1, '°') : 'n/d (fw senza MPU)';
+  $('imu-pitch').textContent = imu ? fmt(imu.pitch, 1, '°') : '—';
+  if (imu?.yaw != null) $('yaw-n').setAttribute('transform', `rotate(${-imu.yaw})`);
+
+  const io = a.io; const yn = (v, on, off) => v == null ? '—' : v ? on : off;
+  $('io-run').textContent = yn(io?.running, 'IN GARA', 'ferma');
+  $('io-btn').textContent = yn(io?.button, 'premuto', 'rilasciato');
+  $('io-led').textContent = yn(io?.led, 'acceso', 'spento');
+}
+
+// ---------------------------------------------------------------- mappa
+const ORI = ['Nord', 'Est', 'Sud', 'Ovest'];
+let lastNav = null, lastVictims = [];
+function renderNav(s) {
+  const n = s.nav; lastNav = n; lastVictims = s.victims || [];
+  $('map-empty').hidden = !!n;
+  $('nav-vic').textContent = lastVictims.length;
+  if (!n) return drawMap();
+  $('nav-pos').textContent = `(${n.x}, ${n.y})`; $('nav-ori').textContent = ORI[n.ori];
+  $('nav-vis').textContent = n.visited;
+  $('nav-phase').textContent = [n.returning ? 'RITORNO A CASA' : n.phase, n.last_cmd].filter(Boolean).join(' · ');
+  $('nav-cell').textContent = n.cell_info ? `Ultima cella: ${n.cell_info}` : '';
+  drawMap();
+}
+function drawMap() {
+  const cv = $('map'), dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const n = lastNav; if (!n || !n.cells.length) return;
+  const xs = n.cells.map(c => c.x).concat(n.x), ys = n.cells.map(c => c.y).concat(n.y);
+  const minX = Math.min(...xs) - 1, maxX = Math.max(...xs) + 1, minY = Math.min(...ys) - 1, maxY = Math.max(...ys) + 1;
+  const cs = Math.min(64, (W - 20) / (maxX - minX + 1), (H - 20) / (maxY - minY + 1));
+  const ox = (W - cs * (maxX - minX + 1)) / 2, oy = (H - cs * (maxY - minY + 1)) / 2;
+  const px = x => ox + (x - minX) * cs, py = y => oy + (maxY - y) * cs;   // y verso l'alto = Nord
+  const blocked = new Set((n.blocked || []).map(p => p.join(',')));
+  for (const c of n.cells) {
+    const x = px(c.x), y = py(c.y);
+    g.fillStyle = c.c === 4 ? '#000' : c.c === 3 ? css('--blue') : c.v ? css('--surface') : 'transparent';
+    g.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+    if (blocked.has(`${c.x},${c.y}`)) { g.strokeStyle = css('--bad'); g.lineWidth = 1;
+      for (let k = -cs; k < cs; k += 8) { g.beginPath(); g.moveTo(x + Math.max(0, k), y + Math.max(0, -k)); g.lineTo(x + Math.min(cs, cs + k), y + Math.min(cs, cs - k)); g.stroke(); } }
+  }
+  g.fillStyle = css('--muted'); g.font = `600 ${Math.max(10, cs * 0.28)}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (n.cells.some(c => c.x === 0 && c.y === 0)) g.fillText('S', px(0) + cs / 2, py(0) + cs / 2);
+  // muri: 0 N, 1 E, 2 S, 3 O
+  for (const c of n.cells) {
+    const x = px(c.x), y = py(c.y);
+    const seg = [[x, y, x + cs, y], [x + cs, y, x + cs, y + cs], [x, y + cs, x + cs, y + cs], [x, y, x, y + cs]];
+    c.w.forEach((w, d) => {
+      if (w === false) return;
+      g.strokeStyle = w ? css('--text') : css('--faint'); g.lineWidth = w ? 3 : 1; g.setLineDash(w ? [] : [3, 4]);
+      g.beginPath(); g.moveTo(seg[d][0], seg[d][1]); g.lineTo(seg[d][2], seg[d][3]); g.stroke();
+    });
+  }
+  g.setLineDash([]);
+  if (n.path?.length) { g.strokeStyle = css('--accent'); g.lineWidth = 2; g.setLineDash([2, 5]); g.beginPath();
+    g.moveTo(px(n.x) + cs / 2, py(n.y) + cs / 2); n.path.forEach(([a, b]) => g.lineTo(px(a) + cs / 2, py(b) + cs / 2)); g.stroke(); g.setLineDash([]); }
+  // vittime (sulla parete dove sono state viste)
+  for (const v of lastVictims) {
+    const cx = px(v.x) + cs / 2, cy = py(v.y) + cs / 2;
+    const off = [[0, -1], [1, 0], [0, 1], [-1, 0]][v.dir ?? 0];
+    g.fillStyle = '#c08bff'; g.beginPath(); g.arc(cx + off[0] * cs * .3, cy + off[1] * cs * .3, Math.max(4, cs * .1), 0, 7); g.fill();
+  }
+  // robot
+  const rx = px(n.x) + cs / 2, ry = py(n.y) + cs / 2, a = n.ori * Math.PI / 2, r = cs * 0.3;
+  g.save(); g.translate(rx, ry); g.rotate(a); g.fillStyle = css('--accent');
+  g.beginPath(); g.moveTo(0, -r); g.lineTo(r * .8, r * .8); g.lineTo(0, r * .4); g.lineTo(-r * .8, r * .8); g.closePath(); g.fill(); g.restore();
+}
+addEventListener('resize', drawMap);
+
+// ---------------------------------------------------------------- Raspberry + seriale
+function renderPi(s) {
+  const p = s.pi; if (!p) return;
+  $('pi-host').textContent = p.hostname;
+  const t = p.cpu_temp; $('pi-temp').textContent = fmt(t, 1, ' °C');
+  $('pi-temp').className = 'num ' + (t == null ? '' : t >= 80 ? 'st-bad' : t >= 70 ? 'st-wall' : 'st-ok');
+  $('pi-load').textContent = p.load ? `${p.load.join(' / ')}  (${p.cpus} core)` : '—';
+  $('pi-mem').textContent = p.mem ? `${p.mem.used_mb} / ${p.mem.total_mb} MB` : '—';
+  $('pi-disk').textContent = p.disk ? `${p.disk.used_gb} / ${p.disk.total_gb} GB` : '—';
+  $('pi-wifi').textContent = p.wifi ? `${p.wifi.iface} · ${p.wifi.dbm} dBm` : '—';
+  $('pi-up').textContent = dur(p.uptime_s);
+  $('pi-ip').textContent = (p.ips || []).join('  ') || '—';
+  const m = s.vision?.model; $('pi-model').textContent = m ? `${m.name} · ${m.loaded ? 'caricato' : 'NON TROVATO'}` : '—';
+  $('pi-model').className = m && !m.loaded ? 'st-bad' : '';
+  const flags = p.throttled?.flags || [];
+  $('pi-flags').innerHTML = flags.map(f => `<span class="flag ${f.includes('ADESSO') ? 'now' : ''}">${f}</span>`).join('');
+  const bad = flags.some(f => f.includes('ADESSO')) || t >= 80, warn = flags.length || t >= 70;
+  pill('pi', bad ? 'bad' : warn ? 'warn' : 'ok', `Pi ${fmt(t, 0, '°C')}${flags.some(f => f.startsWith('Sottotensione ADESSO')) ? ' · sottotensione!' : ''}`);
+
+  const se = s.serial;
+  $('ser-port').textContent = se.port || '';
+  $('ser-hz').textContent = `${se.tel_hz} Hz · ${se.tel} pacchetti`;
+  $('ser-cnt').textContent = `${se.rx} / ${se.tx}`;
+  $('ser-rx').textContent = se.last_rx ? `${se.last_rx.msg}   (${ago(se.last_rx.t)})` : '—';
+  $('ser-tx').textContent = se.last_tx ? `${se.last_tx.msg}   (${ago(se.last_tx.t)})` : '—';
+}
+
+// ---------------------------------------------------------------- log
+const CATS = ['TUTTI', 'NAV', 'VIS', 'ARD', 'COM', 'SYS'];
+let filter = 'TUTTI';
+CATS.forEach(c => { const b = document.createElement('button'); b.className = 'btn' + (c === filter ? ' on' : ''); b.textContent = c;
+  b.onclick = () => { filter = c; document.querySelectorAll('#filters .btn').forEach(x => x.classList.toggle('on', x === b)); applyFilter(); };
+  $('filters').appendChild(b); });
+function applyFilter() { for (const el of $('log').children) el.hidden = filter !== 'TUTTI' && el.dataset.cat !== filter && !(filter === 'SYS' && el.dataset.cat === 'DASH'); }
+function addLogs(lines) {
+  if (!lines?.length) return;
+  const box = $('log'), stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+  for (const l of lines) {
+    const el = document.createElement('div'); el.className = 'l'; el.dataset.cat = l.cat;
+    const t = new Date(l.t * 1000).toLocaleTimeString('it-IT', { hour12: false });
+    el.innerHTML = `<span class="faint"></span><span class="cat c-${l.cat}"></span><span></span>`;
+    el.children[0].textContent = t; el.children[1].textContent = l.cat; el.children[2].textContent = l.msg;
+    el.hidden = filter !== 'TUTTI' && l.cat !== filter && !(filter === 'SYS' && l.cat === 'DASH');
+    box.appendChild(el);
+  }
+  while (box.children.length > 600) box.firstChild.remove();
+  if (stick) box.scrollTop = box.scrollHeight;
+}
+
+// ---------------------------------------------------------------- stato generale
+function render(s) {
+  const a = s.arduino;
+  if (a.online) pill('ard', 'ok', `Arduino · ${s.serial.tel_hz} Hz`);
+  else if (s.serial.connected === false && s.serial.port) pill('ard', 'bad', 'Seriale non collegata');
+  else pill('ard', a.last_seen ? 'bad' : 'warn', a.last_seen ? `Arduino muto da ${ago(a.last_seen).replace(' fa', '')}` : 'Arduino: nessun dato');
+  const run = a.io?.running;
+  pill('run', run == null ? '' : run ? 'ok' : 'warn', run == null ? 'Gara —' : run ? 'IN GARA' : 'Robot fermo');
+  renderCams(s); renderTof(a); renderActuators(a); renderNav(s); renderPi(s); addLogs(s.logs);
+}
+
+let es, lastMsg = 0;
+function connectEvents() {
+  es = new EventSource('/events' + q());
+  es.onopen = () => { pill('link', 'ok', 'Collegato al robot'); $('log').innerHTML = ''; };
+  es.onmessage = e => { lastMsg = Date.now(); try { render(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+  es.onerror = () => { pill('link', 'bad', 'Robot non raggiungibile'); };
+}
+connectEvents();
+setInterval(() => {
+  if (lastMsg && Date.now() - lastMsg > 3000) {
+    pill('link', 'bad', 'Robot non raggiungibile'); es.close(); lastMsg = 0; connectEvents();
+    Object.values(cams).forEach(c => c.connect && c.live && c.connect());
+  }
+}, 1000);
+</script>
+</body>
+</html>
